@@ -32,16 +32,17 @@ pub fn ensure_runtime() -> Result<(), String> {
                 let path = std::env::var_os("ORT_DYLIB_PATH")
                     .map(std::path::PathBuf::from)
                     .unwrap_or_else(|| {
-                        let bundled = std::path::Path::new("../Frameworks/libonnxruntime.dylib");
-                        let in_bundle = std::env::current_exe()
+                        // The bundle's copy by its full path: dlopen reads a
+                        // relative one against the working directory, which
+                        // for an app the Finder starts is `/`.
+                        std::env::current_exe()
                             .ok()
-                            .and_then(|exe| exe.parent().map(|dir| dir.join(bundled)))
-                            .is_some_and(|candidate| candidate.exists());
-                        if in_bundle {
-                            bundled.to_path_buf()
-                        } else {
-                            "libonnxruntime.dylib".into()
-                        }
+                            .and_then(|exe| {
+                                exe.parent()
+                                    .map(|dir| dir.join("../Frameworks/libonnxruntime.dylib"))
+                            })
+                            .filter(|candidate| candidate.exists())
+                            .unwrap_or_else(|| "libonnxruntime.dylib".into())
                     });
                 let builder = ort::init_from(&path).map_err(|error| {
                     format!(
