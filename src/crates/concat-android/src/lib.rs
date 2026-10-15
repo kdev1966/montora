@@ -12,8 +12,8 @@
 //! files folder, and its external files folder stands in for the home the
 //! project and export defaults hang off. And where words go: a process on
 //! a phone has no terminal, so the log facade and everything the window
-//! prints to stderr are forwarded to logcat under the `concat` tag, which
-//! is where `adb logcat -s concat` reads a report from.
+//! prints to stderr are forwarded to logcat under the `montora` tag, which
+//! is where `adb logcat -s montora` reads a report from.
 
 #[cfg(target_os = "android")]
 mod activity {
@@ -53,7 +53,7 @@ mod activity {
         let logcat = android_logger::AndroidLogger::new(
             android_logger::Config::default()
                 .with_max_level(log::LevelFilter::Info)
-                .with_tag("concat"),
+                .with_tag("montora"),
         );
         concat::open_logging(Some(Box::new(logcat)));
         forward_stderr();
@@ -324,7 +324,7 @@ mod publisher {
         });
     }
 
-    /// `ConcatFiles.publishedFolder`: "Movies/Concat", or nothing.
+    /// `ConcatFiles.publishedFolder`: "Movies/Montora", or nothing.
     fn published_folder(app: &AndroidApp) -> jni::errors::Result<Option<String>> {
         super::java::with_class(app, |env, _activity, class| {
             let answer = env

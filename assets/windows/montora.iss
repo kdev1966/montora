@@ -1,13 +1,13 @@
-; Concat's Windows installer.
+; Montora's Windows installer.
 ;
 ; Built by build-app.yml with Inno Setup from the staged folder the .msi
 ; is also made of, so the two ship the same files; this is the one a
-; person double-clicks, and it puts Concat in the Start menu and can take
+; person double-clicks, and it puts Montora in the Start menu and can take
 ; it out again. Everything it needs is handed in on the command line:
 ;
 ;   iscc /DVersion=0.2.7 /DArch=x64compatible /DSuffix=x86_64 ^
-;        /DStage=C:\...\stage\Concat-0.2.7-windows-x86_64 /DOut=C:\...\stage ^
-;        assets\windows\concat.iss
+;        /DStage=C:\...\stage\Montora-0.2.7-windows-x86_64 /DOut=C:\...\stage ^
+;        assets\windows\montora.iss
 ;
 ; Arch is Inno's own word for the machine: x64compatible for the x86_64
 ; build (which also installs on ARM PCs, under emulation), arm64 for the
@@ -32,23 +32,23 @@
 [Setup]
 ; One id for the life of the product, so an install over an older one is
 ; an upgrade and not a second copy.
-AppId={{7B1E5C3A-3B9E-4F0B-9C6D-2F1D0C0A0C47}
-AppName=Concat
+AppId={{4AC4ED00-8F48-4FEA-8533-86CA170512CB}
+AppName=Montora
 AppVersion={#Version}
-AppVerName=Concat {#Version}
-AppPublisher=Concat contributors
-AppPublisherURL=https://github.com/jub0t/Concat
-AppSupportURL=https://github.com/jub0t/Concat/issues
-AppUpdatesURL=https://github.com/jub0t/Concat/releases
-DefaultDirName={autopf}\Concat
-DefaultGroupName=Concat
+AppVerName=Montora {#Version}
+AppPublisher=Montora contributors
+AppPublisherURL=https://github.com/kdev1966/montora
+AppSupportURL=https://github.com/kdev1966/montora/issues
+AppUpdatesURL=https://github.com/kdev1966/montora/releases
+DefaultDirName={autopf}\Montora
+DefaultGroupName=Montora
 DisableProgramGroupPage=yes
 LicenseFile=..\..\LICENSE
 OutputDir={#Out}
-OutputBaseFilename=Concat-{#Version}-windows-{#Suffix}-setup
+OutputBaseFilename=Montora-{#Version}-windows-{#Suffix}-setup
 SetupIconFile=..\icons\montora.ico
 UninstallDisplayIcon={app}\montora.ico
-UninstallDisplayName=Concat
+UninstallDisplayName=Montora
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
@@ -108,8 +108,8 @@ Source: "{#Stage}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs crea
 Source: "..\icons\montora.ico"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{autoprograms}\Concat"; Filename: "{app}\concat.exe"; IconFilename: "{app}\montora.ico"
-Name: "{autodesktop}\Concat"; Filename: "{app}\concat.exe"; IconFilename: "{app}\montora.ico"; Tasks: desktopicon
+Name: "{autoprograms}\Montora"; Filename: "{app}\montora.exe"; IconFilename: "{app}\montora.ico"
+Name: "{autodesktop}\Montora"; Filename: "{app}\montora.exe"; IconFilename: "{app}\montora.ico"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\concat.exe"; Description: "{cm:LaunchProgram,Concat}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\montora.exe"; Description: "{cm:LaunchProgram,Montora}"; Flags: nowait postinstall skipifsilent

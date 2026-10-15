@@ -63,7 +63,7 @@ On Linux, Skia needs the fontconfig and freetype headers at build time (see
 `.github/workflows/build-app.yml` for the package list).
 
 On Nix, the flake at the repository root builds the window with every native
-dependency pinned: `nix build` (then `./result/bin/concat`), `nix run`, or
+dependency pinned: `nix build` (then `./result/bin/montora`), `nix run`, or
 `nix develop` for a shell with the toolchain and libraries in it. Linux
 x86_64 and aarch64.
 

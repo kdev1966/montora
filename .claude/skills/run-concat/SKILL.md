@@ -26,7 +26,7 @@ The `quick` profile build of the whole workspace typically takes a few minutes t
 
 This launches a real GUI window (Slint desktop app on macOS/Windows/Linux). It is **not** a web app and **not** an iOS simulator target — don't reach for the browser tools or the iOS simulator tools for it. There is no dedicated MCP or CLI-driven UI automation for this app in a typical session; verification is primarily:
 
-1. **Does it build and launch without error.** Read the terminal it's running in (prefer the terminal MCP's `read_terminal` over asking the user to paste output, if a terminal tool is available) and check for a clean startup log line (e.g. `INFO [main] concat_host::logs: Concat <version> · <platform> · INFO`) with no panics or error-level lines after it.
+1. **Does it build and launch without error.** Read the terminal it's running in (prefer the terminal MCP's `read_terminal` over asking the user to paste output, if a terminal tool is available) and check for a clean startup log line (e.g. `INFO [main] concat_host::logs: Montora <version> · <platform> · INFO`) with no panics or error-level lines after it.
 2. **Ask the user to look.** Since there's no headless way to drive this specific GUI, once it's running, tell the user what to check and let them report back — don't claim a UI behavior works without either seeing it yourself (if a computer-use tool is available and the user has granted it) or being told so by the user. This matches the project's general rule: type-checking and test suites verify code correctness, not feature correctness.
 3. **If a computer-use tool is available and the user wants a screenshot**, it's a normal macOS window — screenshot/click it like any other native app, not through the browser or simulator tools.
 
