@@ -13,6 +13,52 @@
 use ort::session::Session;
 use ort::value::Tensor;
 
+/// Makes sure ONNX Runtime is there before a session is built, and says so
+/// in an error when it is not.
+///
+/// On an Intel Mac the runtime is loaded when a model first needs it rather
+/// than linked: Microsoft's last x86_64 build needs macOS 13.3 (it calls
+/// libc++'s `to_chars` for doubles), and linking it kept the whole app from
+/// starting on macOS 12. Loading it late leaves the rest of the app working
+/// and turns ort's panic into this error. The library is looked for in the
+/// bundle's Frameworks, then by name (`ORT_DYLIB_PATH` overrides both).
+/// Everywhere else the runtime is linked and this is a no-op.
+pub fn ensure_runtime() -> Result<(), String> {
+    #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
+    {
+        static LOADED: std::sync::OnceLock<Result<(), String>> = std::sync::OnceLock::new();
+        LOADED
+            .get_or_init(|| {
+                let path = std::env::var_os("ORT_DYLIB_PATH")
+                    .map(std::path::PathBuf::from)
+                    .unwrap_or_else(|| {
+                        let bundled = std::path::Path::new("../Frameworks/libonnxruntime.dylib");
+                        let in_bundle = std::env::current_exe()
+                            .ok()
+                            .and_then(|exe| exe.parent().map(|dir| dir.join(bundled)))
+                            .is_some_and(|candidate| candidate.exists());
+                        if in_bundle {
+                            bundled.to_path_buf()
+                        } else {
+                            "libonnxruntime.dylib".into()
+                        }
+                    });
+                let builder = ort::init_from(&path).map_err(|error| {
+                    format!(
+                        "onnx runtime could not be loaded from {} ({error}); \
+                         on an Intel Mac it needs macOS 13.3 or later",
+                        path.display()
+                    )
+                })?;
+                builder.commit();
+                Ok(())
+            })
+            .clone()
+    }
+    #[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
+    Ok(())
+}
+
 /// A tensor by name: its dimensions and its values, row-major.
 pub struct Input<'a> {
     /// The graph's input name.
@@ -61,6 +107,7 @@ pub struct Model {
 impl Model {
     /// Loads a model from its bytes.
     pub fn from_bytes(bytes: &[u8]) -> Result<Model, String> {
+        ensure_runtime()?;
         let mut builder = Session::builder().map_err(|error| format!("onnx runtime: {error}"))?;
         builder = builder
             .with_execution_providers(accelerators())

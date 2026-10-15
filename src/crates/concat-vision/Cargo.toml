@@ -26,6 +26,12 @@ ort = { workspace = true, optional = true }
 [target.'cfg(target_vendor = "apple")'.dependencies]
 ort = { workspace = true, optional = true, features = ["coreml"] }
 
+# On an Intel Mac the runtime is opened at first use, not linked: Microsoft's
+# last x86_64 build needs macOS 13.3, and a linked one kept the app from
+# starting on macOS 12. `runtime::ensure_runtime` says why it could not.
+[target.'cfg(all(target_os = "macos", target_arch = "x86_64"))'.dependencies]
+ort = { workspace = true, optional = true, features = ["coreml", "load-dynamic"] }
+
 # DirectML on Windows asks for the provider; whether it is there is the
 # runtime's to say. The bundles and CI link Microsoft's CPU build of ONNX
 # Runtime dynamically instead of the static DirectML one ort-sys would

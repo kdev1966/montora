@@ -278,6 +278,7 @@ struct Voice {
 /// refuses outright fails here, and the caller loads the bundle for the
 /// CPU instead. The log says which it got.
 fn session(path: &Path, accelerated: bool) -> Result<Session, String> {
+    concat_vision::runtime::ensure_runtime()?;
     let threads = std::thread::available_parallelism()
         .map(|count| count.get())
         .unwrap_or(1)
