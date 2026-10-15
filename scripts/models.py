@@ -37,6 +37,10 @@ CRATES = ROOT / "src" / "crates"
 # The repository the mirror lives on, and the engine constant that must
 # agree with this file about which release holds it.
 REPO = "jub0t/Concat"
+# The repository Montora's own releases live on, which is not the mirror's:
+# the app's bundles are published here, the models are fetched from there.
+# concat-host's updates.rs reads releases from the same one.
+APP_REPO = "kdev1966/montora"
 HOST_MODELS = CRATES / "concat-host" / "src" / "models.rs"
 
 # Where each family's table lives in the engine, for --check.
@@ -52,22 +56,15 @@ TABLES = {
 # version to fill in. Installers and binaries, never an archive of a
 # folder - a person downloads the thing they run.
 BUNDLES = [
-    ("macos", "arm64", "dmg", "Concat-{v}-macos-arm64.dmg"),
-    ("macos", "x86_64", "dmg", "Concat-{v}-macos-x86_64.dmg"),
-    ("linux", "x86_64", "deb", "Concat-{v}-linux-x86_64.deb"),
-    ("linux", "x86_64", "rpm", "Concat-{v}-linux-x86_64.rpm"),
-    ("linux", "x86_64", "appimage", "Concat-{v}-x86_64.AppImage"),
-    ("linux", "x86_64", "pacman", "Concat-{v}-linux-x86_64.pkg.tar.zst"),
-    ("linux", "aarch64", "deb", "Concat-{v}-linux-aarch64.deb"),
-    ("linux", "aarch64", "rpm", "Concat-{v}-linux-aarch64.rpm"),
-    ("linux", "aarch64", "appimage", "Concat-{v}-aarch64.AppImage"),
-    ("linux", "aarch64", "pacman", "Concat-{v}-linux-aarch64.pkg.tar.zst"),
-    ("windows", "x86_64", "setup", "Concat-{v}-windows-x86_64-setup.exe"),
-    ("windows", "x86_64", "msi", "Concat-{v}-windows-x86_64.msi"),
-    ("windows", "aarch64", "setup", "Concat-{v}-windows-aarch64-setup.exe"),
-    ("windows", "aarch64", "msi", "Concat-{v}-windows-aarch64.msi"),
-    ("android", "arm64", "apk", "Concat-{v}-android-arm64.apk"),
-    ("ios", "arm64", "ipa", "Concat-{v}-ios-arm64.ipa"),
+    ("macos", "arm64", "dmg", "Montora-{v}-macos-arm64.dmg"),
+    ("macos", "x86_64", "dmg", "Montora-{v}-macos-x86_64.dmg"),
+    ("linux", "x86_64", "deb", "Montora-{v}-linux-x86_64.deb"),
+    ("linux", "x86_64", "rpm", "Montora-{v}-linux-x86_64.rpm"),
+    ("linux", "x86_64", "appimage", "Montora-{v}-x86_64.AppImage"),
+    ("linux", "x86_64", "pacman", "Montora-{v}-linux-x86_64.pkg.tar.zst"),
+    ("windows", "x86_64", "setup", "Montora-{v}-windows-x86_64-setup.exe"),
+    ("windows", "x86_64", "msi", "Montora-{v}-windows-x86_64.msi"),
+    ("android", "arm64", "apk", "Montora-{v}-android-arm64.apk"),
 ]
 
 
@@ -110,8 +107,8 @@ def hf_mirror(url: str) -> str | None:
     return None
 
 
-def asset_url(release: str, file: str) -> str:
-    return f"https://github.com/{REPO}/releases/download/{release}/{file}"
+def asset_url(release: str, file: str, repo: str = REPO) -> str:
+    return f"https://github.com/{repo}/releases/download/{release}/{file}"
 
 
 def engine_id(model: dict) -> str:
@@ -335,7 +332,7 @@ def release_manifest(version: str, tag: str, bundles: pathlib.Path | None) -> di
         file = stem.format(v=version)
         entry = {
             "file": file,
-            "url": asset_url(tag, file),
+            "url": asset_url(tag, file, APP_REPO),
         }
         if bundles is not None:
             path = bundles / file
@@ -375,7 +372,7 @@ def release_manifest(version: str, tag: str, bundles: pathlib.Path | None) -> di
     return {
         # 2: a target holds one row per kind of file, not one file.
         "schema": 2,
-        "product": "Concat",
+        "product": "Montora",
         "version": version,
         "tag": tag,
         "models_release": release,

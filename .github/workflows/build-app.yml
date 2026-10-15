@@ -1,13 +1,16 @@
 name: Build app
 
-# Builds Concat - the Slint window, `src/crates/concat` - for every
-# platform and architecture it ships on, each on a runner of that
+# Builds Montora - the Slint window, `src/crates/concat` - for every
+# desktop platform and architecture it ships on, each on a runner of that
 # architecture so nothing is cross-compiled, and uploads one artifact per
 # target:
 #
-#   macOS    arm64 (Apple silicon)   x86_64 (Intel)     -> Concat-*.dmg
-#   Linux    x86_64                  aarch64            -> Concat-*.deb, .rpm, .AppImage, .pkg.tar.zst
-#   Windows  x86_64                  (aarch64, #326)    -> Concat-*-setup.exe, .msi
+#   macOS    arm64 (Apple silicon)   x86_64 (Intel)     -> Montora-*.dmg
+#   Linux    x86_64                                     -> Montora-*.deb, .rpm, .AppImage, .pkg.tar.zst
+#   Windows  x86_64                                     -> Montora-*-setup.exe, .msi
+#
+# Linux on ARM and Windows on ARM are not built: Montora ships for the
+# machines above and Android (mobile.yml), nothing else.
 #
 # Installers and binaries only: the program is not shipped as an archive
 # of a folder to unpack, so what a person downloads is what they run.
@@ -29,8 +32,8 @@ name: Build app
 #   set on the repository, and ad-hoc signed when they are not, so a build
 #   from a fork still opens (with Gatekeeper's warning).
 #
-# - Every bundle is launched before it is uploaded: `concat --version` and
-#   `concat --smoke` from the staged folder, on a machine with nothing else
+# - Every bundle is launched before it is uploaded: `montora --version` and
+#   `montora --smoke` from the staged folder, on a machine with nothing else
 #   on the path (scripts/ci/smoke-*). On x86_64 the bundle is also started
 #   under Intel's emulator posing as an Ivy Bridge, and its binaries are
 #   scanned for instructions newer than AVX (scripts/ci/isa-scan.sh): the
@@ -40,7 +43,7 @@ name: Build app
 # - Every prebuilt dependency downloaded here is pinned to one file and its
 #   digest in scripts/ci/deps.lock, and every action to a commit.
 #
-# The six targets are a matrix so one fails without taking the rest down;
+# The four targets are a matrix so one fails without taking the rest down;
 # `fail-fast` is off for the same reason.
 on:
   workflow_call:
@@ -74,6 +77,9 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  # The app's id: the desktop entry's and the icon's name on Linux, the
+  # window's Wayland app_id, and the bundle identifier on macOS.
+  APP_ID: io.github.kdev1966.montora
   # The prebuilt dependencies - BtbN's FFmpeg 8.1 (GPL, shared, one per
   # arch), ONNX Runtime, sherpa-onnx, nfpm, appimagetool, LLVM for Windows
   # and Intel's emulator - are each pinned to one file and its digest in
@@ -149,15 +155,6 @@ jobs:
             ort: x64
             nfpm: amd64
             appimage: x86_64
-          - platform: linux
-            arch: aarch64
-            os: ubuntu-22.04-arm
-            target: aarch64-unknown-linux-gnu
-            ffmpeg: linuxarm64
-            sherpa: linux-aarch64
-            ort: aarch64
-            nfpm: arm64
-            appimage: aarch64
           - platform: windows
             arch: x86_64
             os: windows-2022
@@ -169,11 +166,6 @@ jobs:
             vc: x64
             inno: x64compatible
             wix: x64
-          # No Windows on ARM until its program starts: v0.2.7-rc.4's
-          # concat.exe died with an access violation on `--version` (#326).
-          # Its row was platform windows, arch aarch64, os windows-11-arm,
-          # target aarch64-pc-windows-msvc, ffmpeg winarm64, sherpa and ort
-          # win-arm64, llvm woa64, vc and inno and wix arm64.
     runs-on: ${{ matrix.os }}
     # The slowest target is Intel macOS, whose build alone ran past an hour
     # in v0.2.7-rc.1. The steps that can hang have timeouts of their own,
@@ -202,7 +194,7 @@ jobs:
         run: |
           version=$(sed -n 's/^version = "\(.*\)"/\1/p' src/Cargo.toml | head -1)
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "Building Concat $version for ${{ matrix.target }}"
+          echo "Building Montora $version for ${{ matrix.target }}"
 
       # ── Linux ──────────────────────────────────────────────────────────
       # Slint's Skia renderer links fontconfig and freetype; cpal links
@@ -283,10 +275,12 @@ jobs:
 
       # ONNX Runtime on an Intel Mac. ort ships no static build for
       # x86_64-apple-darwin, so the cutout's runtime is Microsoft's shared
-      # one, linked dynamically the way Linux does it, and bundled into
-      # Frameworks by dylibbundler along with FFmpeg's - the install name
-      # is @rpath, so the bundler is told where to look. Apple silicon
-      # keeps ort's static build.
+      # one. It is not linked: ort loads it the first time a model runs
+      # (concat-vision's runtime.rs), because this last x86_64 build needs
+      # macOS 13.3 and a linked one kept the whole app from starting on
+      # macOS 12. Nothing links it, so dylibbundler does not see it either:
+      # the bundle step copies it into Frameworks, where runtime.rs looks.
+      # Apple silicon keeps ort's static build.
       - name: ONNX Runtime (Intel macOS)
         if: matrix.platform == 'macos' && matrix.arch == 'x86_64'
         run: |
@@ -377,9 +371,9 @@ jobs:
           "$dir\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
 
       # ONNX Runtime on Windows: Microsoft's shared build, linked
-      # dynamically, and onnxruntime.dll shipped beside concat.exe.
+      # dynamically, and onnxruntime.dll shipped beside montora.exe.
       #
-      # Left to itself ort-sys links pyke's static build into concat.exe,
+      # Left to itself ort-sys links pyke's static build into montora.exe,
       # and that build is compiled for Haswell from end to end: BMI2
       # shifts in ordinary code, run at start-up, so 0.2.5 and 0.2.6 died
       # with STATUS_ILLEGAL_INSTRUCTION on every CPU before 2013 (#313).
@@ -546,45 +540,45 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
-          app=Concat.app
+          app=Montora.app
           rm -rf "$app"
           mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources" "$app/Contents/Frameworks"
-          cp "src/target/${{ matrix.target }}/app/concat" "$app/Contents/MacOS/concat"
+          cp "src/target/${{ matrix.target }}/app/montora" "$app/Contents/MacOS/montora"
 
           # The icon set Apple wants: each size and its @2x twin.
-          iconset=Concat.iconset
+          iconset=Montora.iconset
           rm -rf "$iconset"; mkdir "$iconset"
           icons=assets/icons
-          cp "$icons/concat_logo_16.png"  "$iconset/icon_16x16.png"
-          cp "$icons/concat_logo_32.png"  "$iconset/icon_16x16@2x.png"
-          cp "$icons/concat_logo_32.png"  "$iconset/icon_32x32.png"
-          cp "$icons/concat_logo_64.png"  "$iconset/icon_32x32@2x.png"
-          cp "$icons/concat_logo_128.png" "$iconset/icon_128x128.png"
-          cp "$icons/concat_logo_256.png" "$iconset/icon_128x128@2x.png"
-          cp "$icons/concat_logo_256.png" "$iconset/icon_256x256.png"
-          cp "$icons/concat_logo_512.png" "$iconset/icon_256x256@2x.png"
-          cp "$icons/concat_logo_512.png" "$iconset/icon_512x512.png"
-          iconutil -c icns "$iconset" -o "$app/Contents/Resources/Concat.icns"
+          cp "$icons/montora_logo_16.png"  "$iconset/icon_16x16.png"
+          cp "$icons/montora_logo_32.png"  "$iconset/icon_16x16@2x.png"
+          cp "$icons/montora_logo_32.png"  "$iconset/icon_32x32.png"
+          cp "$icons/montora_logo_64.png"  "$iconset/icon_32x32@2x.png"
+          cp "$icons/montora_logo_128.png" "$iconset/icon_128x128.png"
+          cp "$icons/montora_logo_256.png" "$iconset/icon_128x128@2x.png"
+          cp "$icons/montora_logo_256.png" "$iconset/icon_256x256.png"
+          cp "$icons/montora_logo_512.png" "$iconset/icon_256x256@2x.png"
+          cp "$icons/montora_logo_512.png" "$iconset/icon_512x512.png"
+          iconutil -c icns "$iconset" -o "$app/Contents/Resources/Montora.icns"
 
           cat > "$app/Contents/Info.plist" <<PLIST
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>
-            <key>CFBundleName</key><string>Concat</string>
-            <key>CFBundleDisplayName</key><string>Concat</string>
-            <key>CFBundleIdentifier</key><string>app.concat.editor</string>
+            <key>CFBundleName</key><string>Montora</string>
+            <key>CFBundleDisplayName</key><string>Montora</string>
+            <key>CFBundleIdentifier</key><string>io.github.kdev1966.montora</string>
             <key>CFBundleVersion</key><string>${VERSION}</string>
             <key>CFBundleShortVersionString</key><string>${VERSION}</string>
-            <key>CFBundleExecutable</key><string>concat</string>
-            <key>CFBundleIconFile</key><string>Concat</string>
+            <key>CFBundleExecutable</key><string>montora</string>
+            <key>CFBundleIconFile</key><string>Montora</string>
             <key>CFBundlePackageType</key><string>APPL</string>
             <key>LSMinimumSystemVersion</key><string>${MACOSX_DEPLOYMENT_TARGET}</string>
             <key>NSHighResolutionCapable</key><true/>
             <key>NSSupportsAutomaticGraphicsSwitching</key><true/>
             <key>LSApplicationCategoryType</key><string>public.app-category.video</string>
             <key>NSHumanReadableCopyright</key><string>AGPL-3.0-or-later. See THIRD_PARTY_NOTICES.md.</string>
-            <key>NSMicrophoneUsageDescription</key><string>Concat records voiceovers from your microphone.</string>
+            <key>NSMicrophoneUsageDescription</key><string>Montora records voiceovers from your microphone.</string>
           </dict>
           </plist>
           PLIST
@@ -592,14 +586,25 @@ jobs:
           # Every non-system dylib the binary (and those dylibs) load, copied
           # in and re-pointed at @executable_path/../Frameworks.
           dylibbundler -od -b \
-            -x "$app/Contents/MacOS/concat" \
+            -x "$app/Contents/MacOS/montora" \
             -d "$app/Contents/Frameworks" \
-            -p @executable_path/../Frameworks \
-            ${ORT_DIR:+-s "$ORT_DIR/lib"}
+            -p @executable_path/../Frameworks
+
+          # ONNX Runtime on an Intel Mac, which the binary loads by path
+          # rather than links (see its download step above). It needs
+          # nothing but the system's own libraries.
+          if [ "${{ matrix.arch }}" = x86_64 ]; then
+            cp "$ORT_DIR/lib/libonnxruntime.$ORT_INTEL_MAC_VERSION.dylib" \
+              "$app/Contents/Frameworks/libonnxruntime.dylib"
+            if otool -L "$app/Contents/Frameworks/libonnxruntime.dylib" | tail -n +2 | grep -v -E '^[[:space:]]+(/usr/lib/|/System/|@rpath/libonnxruntime)'; then
+              echo "libonnxruntime.dylib loads a library the bundle does not carry" >&2
+              exit 1
+            fi
+          fi
 
           # Nothing outside the bundle may remain: a load path into
           # Homebrew would break on a Mac without it.
-          if otool -L "$app/Contents/MacOS/concat" | grep -E '/opt/homebrew|/usr/local' ; then
+          if otool -L "$app/Contents/MacOS/montora" | grep -E '/opt/homebrew|/usr/local' ; then
             echo "the binary still loads libraries from outside the bundle" >&2
             exit 1
           fi
@@ -620,8 +625,8 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
-          app=Concat.app
-          dmg="Concat-${VERSION}-macos-${{ matrix.arch }}.dmg"
+          app=Montora.app
+          dmg="Montora-${VERSION}-macos-${{ matrix.arch }}.dmg"
           if [ -n "${CERT_P12}" ] && [ -n "${IDENTITY}" ]; then
             keychain=$RUNNER_TEMP/signing.keychain-db
             echo "$CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
@@ -637,12 +642,12 @@ jobs:
               codesign --force --options runtime --timestamp -s "$IDENTITY" {} \;
             # The hardened runtime keeps the microphone shut unless the app
             # says it records: the voiceover.
-            entitlements="$RUNNER_TEMP/concat.entitlements"
+            entitlements="$RUNNER_TEMP/montora.entitlements"
             printf '%s\n' '<?xml version="1.0" encoding="UTF-8"?>' \
               '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' \
               '<plist version="1.0"><dict><key>com.apple.security.device.audio-input</key><true/></dict></plist>' \
               > "$entitlements"
-            codesign --force --options runtime --timestamp --entitlements "$entitlements" -s "$IDENTITY" "$app/Contents/MacOS/concat"
+            codesign --force --options runtime --timestamp --entitlements "$entitlements" -s "$IDENTITY" "$app/Contents/MacOS/montora"
             codesign --force --options runtime --timestamp --entitlements "$entitlements" -s "$IDENTITY" "$app"
             codesign --verify --deep --strict "$app"
           else
@@ -650,7 +655,7 @@ jobs:
             codesign --force --deep -s - "$app"
           fi
 
-          hdiutil create -volname Concat -srcfolder "$app" -ov -format UDZO "$dmg"
+          hdiutil create -volname Montora -srcfolder "$app" -ov -format UDZO "$dmg"
 
           if [ -n "${APPLE_ID}" ] && [ -n "${TEAM_ID}" ] && [ -n "${APP_PASSWORD}" ] && [ -n "${IDENTITY}" ]; then
             codesign --force --timestamp -s "$IDENTITY" "$dmg"
@@ -666,7 +671,7 @@ jobs:
       - name: Smoke test (macOS)
         if: matrix.platform == 'macos'
         timeout-minutes: 10
-        run: scripts/ci/smoke-macos.sh Concat.app
+        run: scripts/ci/smoke-macos.sh Montora.app
 
       # ── Package: Linux ─────────────────────────────────────────────────
       # The binary, the FFmpeg runtime libraries it loads from lib/ beside
@@ -677,28 +682,30 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
-          name="Concat-${VERSION}-linux-${{ matrix.arch }}"
+          name="Montora-${VERSION}-linux-${{ matrix.arch }}"
           mkdir -p "stage/$name/lib"
-          cp "src/target/${{ matrix.target }}/app/concat" "stage/$name/concat"
+          cp "src/target/${{ matrix.target }}/app/montora" "stage/$name/montora"
           cp -a ffmpeg-dev/lib/*.so* "stage/$name/lib/"
           cp -a "$ORT_DIR"/lib/libonnxruntime.so* "stage/$name/lib/"
-          cp assets/icons/concat_logo_256.png "stage/$name/concat.png"
-          cat > "stage/$name/concat.desktop" <<DESKTOP
+          # The desktop entry and the icon go by the app's id, which is
+          # also the window's Wayland app_id (platform.rs).
+          cp assets/icons/montora_logo_256.png "stage/$name/$APP_ID.png"
+          cat > "stage/$name/$APP_ID.desktop" <<DESKTOP
           [Desktop Entry]
           Type=Application
-          Name=Concat
+          Name=Montora
           Comment=Video editor
-          Exec=concat
-          Icon=concat
+          Exec=montora
+          Icon=$APP_ID
           Categories=AudioVideo;Video;
           Terminal=false
-          StartupWMClass=concat
+          StartupWMClass=$APP_ID
           DESKTOP
           cp LICENSE THIRD_PARTY_NOTICES.md "stage/$name/"
           # The binary must resolve every library from the folder alone.
           # The whole ldd report goes to the public summary when it does
           # not, so the failure names the library instead of just a step.
-          report=$(env -u LD_LIBRARY_PATH ldd "stage/$name/concat" || true)
+          report=$(env -u LD_LIBRARY_PATH ldd "stage/$name/montora" || true)
           if grep -i 'not found' <<<"$report"; then
             {
               echo "### Unresolved libraries: ${{ matrix.target }}"
@@ -732,7 +739,7 @@ jobs:
             tar -xJf sde.tar.xz -C sde --strip-components=1
             args+=(--sde "$PWD/sde/sde64")
           fi
-          scripts/ci/smoke-linux.sh "${args[@]}" "stage/Concat-${VERSION}-linux-${{ matrix.arch }}"
+          scripts/ci/smoke-linux.sh "${args[@]}" "stage/Montora-${VERSION}-linux-${{ matrix.arch }}"
 
       # Every x86_64 binary in the folder, disassembled and counted for
       # instructions an Ivy Bridge does not have, against what
@@ -745,22 +752,18 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get install -y llvm
-          scripts/ci/isa-scan.sh "stage/Concat-${VERSION}-linux-${{ matrix.arch }}"
+          scripts/ci/isa-scan.sh "stage/Montora-${VERSION}-linux-${{ matrix.arch }}"
 
       # Arch Linux package, from the same folder as the .deb and .rpm.
-      # Arch ships x86_64 only, so aarch64 comes from Arch Linux ARM.
       - name: Package (Arch Linux)
         if: matrix.platform == 'linux'
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
-          name="Concat-${VERSION}-linux-${{ matrix.arch }}"
+          name="Montora-${VERSION}-linux-${{ matrix.arch }}"
           pkgver="${VERSION//-/_}"
           image=archlinux:base-devel
-          if [ "${{ matrix.arch }}" = aarch64 ]; then
-            image=menci/archlinuxarm:base-devel
-          fi
 
           work="$PWD/arch"
           rm -rf "$work"
@@ -774,23 +777,22 @@ jobs:
           owner=$(stat -c '%u:%g' /pkg)
           useradd -m builder
           chown -R builder:builder /pkg
-          # PKGEXT named outright: Arch Linux ARM's makepkg.conf still
-          # writes .pkg.tar.xz where Arch's writes .pkg.tar.zst, and the
-          # move below wants one name from both images.
-          su builder -c "env CONCAT_VERSION='$CONCAT_VERSION' CONCAT_STAGE=/pkg/stage PKGDEST=/pkg PKGEXT=.pkg.tar.zst makepkg --noconfirm --nodeps"
+          # PKGEXT named outright, so the move below does not depend on
+          # the image's makepkg.conf.
+          su builder -c "env MONTORA_VERSION='$MONTORA_VERSION' MONTORA_STAGE=/pkg/stage PKGDEST=/pkg PKGEXT=.pkg.tar.zst makepkg --noconfirm --nodeps"
           chown -R "$owner" /pkg
           SCRIPT
           chmod 755 "$work/build.sh"
 
-          docker run --rm --env CONCAT_VERSION="$pkgver" \
+          docker run --rm --env MONTORA_VERSION="$pkgver" \
             -v "$work:/pkg" -w /pkg "$image" /pkg/build.sh
 
-          mv "$work"/concat-*.pkg.tar.zst "stage/$name.pkg.tar.zst"
+          mv "$work"/montora-*.pkg.tar.zst "stage/$name.pkg.tar.zst"
           rm -rf "$work"
           ls -l stage
 
       # The folder three ways. A .deb and an .rpm, from one description in
-      # assets/linux/nfpm.yaml: the program whole under /opt/concat, a
+      # assets/linux/nfpm.yaml: the program whole under /opt/montora, a
       # launcher on the path, a desktop entry and an icon. And an AppImage:
       # the folder as an AppDir, one file that runs on any distribution
       # with the toolkit installed, which every desktop has. All three from
@@ -803,15 +805,15 @@ jobs:
           ARCH: ${{ matrix.appimage }}
         run: |
           set -euo pipefail
-          name="Concat-${VERSION}-linux-${{ matrix.arch }}"
+          name="Montora-${VERSION}-linux-${{ matrix.arch }}"
           export STAGE="$PWD/stage/$name"
 
           # What the packages add over the folder: the launcher, and a
           # desktop entry that names the program by its installed path.
           mkdir -p "$STAGE/pkg"
-          printf '#!/bin/sh\nexec /opt/concat/concat "$@"\n' > "$STAGE/pkg/concat"
-          chmod +x "$STAGE/pkg/concat"
-          sed 's|^Exec=concat|Exec=/opt/concat/concat %U|' "$STAGE/concat.desktop" > "$STAGE/pkg/concat.desktop"
+          printf '#!/bin/sh\nexec /opt/montora/montora "$@"\n' > "$STAGE/pkg/montora"
+          chmod +x "$STAGE/pkg/montora"
+          sed 's|^Exec=montora|Exec=/opt/montora/montora %U|' "$STAGE/$APP_ID.desktop" > "$STAGE/pkg/$APP_ID.desktop"
 
           scripts/ci/fetch.sh "nfpm-$( [ "${{ matrix.arch }}" = x86_64 ] && echo x86_64 || echo arm64 )" nfpm.tar.gz
           mkdir -p nfpm && tar -xzf nfpm.tar.gz -C nfpm
@@ -825,10 +827,10 @@ jobs:
           # The AppDir: the binary and its lib/ under usr/bin, so the
           # rpath holds; the desktop entry and icon at the root, where
           # the tool wants them; AppRun is the binary.
-          appdir="$PWD/Concat.AppDir"
+          appdir="$PWD/Montora.AppDir"
           rm -rf "$appdir"
           mkdir -p "$appdir/usr/bin" "$appdir/usr/share/icons/hicolor/256x256/apps" "$appdir/usr/share/applications"
-          cp "$STAGE/concat" "$appdir/usr/bin/concat"
+          cp "$STAGE/montora" "$appdir/usr/bin/montora"
           cp -a "$STAGE/lib" "$appdir/usr/bin/lib"
           # The X11 keyboard library the window opens by name at start, and
           # the xcb extension under it: a machine without them panicked
@@ -837,12 +839,12 @@ jobs:
           for lib in libxkbcommon-x11.so.0 libxcb-xkb.so.1; do
             cp -L "$(ldconfig -p | awk -v lib="$lib" '$1 == lib { print $NF; exit }')" "$appdir/usr/bin/lib/$lib"
           done
-          cp "$STAGE/concat.desktop" "$appdir/concat.desktop"
-          cp "$STAGE/concat.desktop" "$appdir/usr/share/applications/concat.desktop"
-          cp "$STAGE/concat.png" "$appdir/concat.png"
-          cp "$STAGE/concat.png" "$appdir/usr/share/icons/hicolor/256x256/apps/concat.png"
-          ln -s concat.png "$appdir/.DirIcon"
-          ln -s usr/bin/concat "$appdir/AppRun"
+          cp "$STAGE/$APP_ID.desktop" "$appdir/$APP_ID.desktop"
+          cp "$STAGE/$APP_ID.desktop" "$appdir/usr/share/applications/$APP_ID.desktop"
+          cp "$STAGE/$APP_ID.png" "$appdir/$APP_ID.png"
+          cp "$STAGE/$APP_ID.png" "$appdir/usr/share/icons/hicolor/256x256/apps/$APP_ID.png"
+          ln -s "$APP_ID.png" "$appdir/.DirIcon"
+          ln -s usr/bin/montora "$appdir/AppRun"
           # The tool and the runtime it puts at the head of the AppImage,
           # both a named release: left to itself the tool downloads the
           # runtime's `continuous` build as it runs.
@@ -852,7 +854,7 @@ jobs:
           # Extract-and-run: the runner has no FUSE to mount the tool with.
           # No "linux" in its name: every AppImage is for Linux, and the
           # AppImage catalog's check warns about names that say so.
-          appimage="stage/Concat-${VERSION}-${{ matrix.arch }}.AppImage"
+          appimage="stage/Montora-${VERSION}-${{ matrix.arch }}.AppImage"
           ./appimagetool --appimage-extract-and-run --runtime-file appimage-runtime "$appdir" "$appimage"
           chmod +x "$appimage"
 
@@ -873,8 +875,8 @@ jobs:
           set -euo pipefail
           for image in ubuntu:22.04 debian:12; do
             scripts/ci/smoke-linux.sh --container "$image" \
-              "stage/Concat-${VERSION}-linux-${{ matrix.arch }}.deb" \
-              "stage/Concat-${VERSION}-${{ matrix.arch }}.AppImage"
+              "stage/Montora-${VERSION}-linux-${{ matrix.arch }}.deb" \
+              "stage/Montora-${VERSION}-${{ matrix.arch }}.AppImage"
           done
 
       # ── Package: Windows ───────────────────────────────────────────────
@@ -891,10 +893,10 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           $ErrorActionPreference = "Stop"
-          $name = "Concat-$env:VERSION-windows-${{ matrix.arch }}"
+          $name = "Montora-$env:VERSION-windows-${{ matrix.arch }}"
           $dir = "stage\$name"
           New-Item -ItemType Directory -Force $dir | Out-Null
-          Copy-Item "src\target\${{ matrix.target }}\app\concat.exe" $dir
+          Copy-Item "src\target\${{ matrix.target }}\app\montora.exe" $dir
           Copy-Item "$env:FFMPEG_DIR\bin\*.dll" $dir
           # The sherpa-onnx runtime, set aside by the download step above.
           Copy-Item "$env:SHERPA_DLL_DIR\*.dll" $dir
@@ -963,12 +965,12 @@ jobs:
           if (-not $signtool) { throw "signtool.exe is not in the Windows SDK" }
           "SIGNTOOL=$($signtool.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
           "SIGNING_THUMBPRINT=$($cert.Thumbprint)" | Out-File -FilePath $env:GITHUB_ENV -Append
-          $dir = "stage\Concat-$env:VERSION-windows-${{ matrix.arch }}"
+          $dir = "stage\Montora-$env:VERSION-windows-${{ matrix.arch }}"
           $unsigned = Get-ChildItem $dir -Recurse -File -Include *.exe, *.dll |
             Where-Object { (Get-AuthenticodeSignature $_.FullName).Status -ne "Valid" }
           foreach ($file in $unsigned) {
             & $signtool.FullName sign /sha1 $cert.Thumbprint /s My /fd SHA256 `
-              /tr http://timestamp.digicert.com /td SHA256 /d Concat $file.FullName
+              /tr http://timestamp.digicert.com /td SHA256 /d Montora $file.FullName
             if ($LASTEXITCODE -ne 0) { throw "signtool failed on $($file.Name)" }
           }
           Write-Host "Signed $(@($unsigned).Count) files."
@@ -984,7 +986,7 @@ jobs:
         shell: pwsh
         env:
           VERSION: ${{ steps.version.outputs.version }}
-        run: scripts/ci/smoke-windows.ps1 -Bundle "stage\Concat-$env:VERSION-windows-${{ matrix.arch }}"
+        run: scripts/ci/smoke-windows.ps1 -Bundle "stage\Montora-$env:VERSION-windows-${{ matrix.arch }}"
 
       # The same, then `--version` under Intel's emulator posing as an Ivy
       # Bridge (#313). A step of its own, after the plain smoke test: in
@@ -1012,7 +1014,7 @@ jobs:
           $sde = (Get-ChildItem sde -Recurse -Filter sde.exe | Select-Object -First 1).FullName
           if (-not $sde) { throw "sde.exe is not in the archive" }
           Write-Host "SDE at $sde"
-          scripts/ci/smoke-windows.ps1 -Bundle "stage\Concat-$env:VERSION-windows-x86_64" -Sde $sde
+          scripts/ci/smoke-windows.ps1 -Bundle "stage\Montora-$env:VERSION-windows-x86_64" -Sde $sde
 
       # Every x86_64 binary in the folder, disassembled and counted for
       # instructions an Ivy Bridge does not have, against what
@@ -1024,7 +1026,7 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.version }}
         # llvm-objdump from the LLVM installed above, on the path.
-        run: scripts/ci/isa-scan.sh "stage/Concat-${VERSION}-windows-${{ matrix.arch }}"
+        run: scripts/ci/isa-scan.sh "stage/Montora-${VERSION}-windows-${{ matrix.arch }}"
 
       # The installers, from the checked folder: Inno Setup's .exe and
       # WiX's .msi, each signed when the folder was.
@@ -1035,16 +1037,16 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           $ErrorActionPreference = "Stop"
-          $name = "Concat-$env:VERSION-windows-${{ matrix.arch }}"
+          $name = "Montora-$env:VERSION-windows-${{ matrix.arch }}"
           function Sign($file) {
             if (-not $env:SIGNING_THUMBPRINT) { return }
             & $env:SIGNTOOL sign /sha1 $env:SIGNING_THUMBPRINT /s My /fd SHA256 `
-              /tr http://timestamp.digicert.com /td SHA256 /d Concat $file
+              /tr http://timestamp.digicert.com /td SHA256 /d Montora $file
             if ($LASTEXITCODE -ne 0) { throw "signtool failed on $file" }
           }
           # The installer, from that folder: Inno Setup, which the x64
           # image carries and the ARM image is given. See
-          # assets/windows/concat.iss.
+          # assets/windows/montora.iss.
           $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
           if (-not (Test-Path $iscc)) {
             Write-Host "Installing Inno Setup"
@@ -1052,17 +1054,17 @@ jobs:
           }
           if (-not (Test-Path $iscc)) { throw "Inno Setup is not at $iscc" }
           & $iscc "/DVersion=$env:VERSION" "/DArch=${{ matrix.inno }}" "/DSuffix=${{ matrix.arch }}" `
-            "/DStage=$PWD\stage\$name" "/DOut=$PWD\stage" assets\windows\concat.iss
+            "/DStage=$PWD\stage\$name" "/DOut=$PWD\stage" assets\windows\montora.iss
           if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed with $LASTEXITCODE" }
           if (-not (Test-Path "stage\$name-setup.exe")) { throw "stage\$name-setup.exe is not there" }
           Sign "stage\$name-setup.exe"
           # And the .msi, with WiX, for the machines an administrator
-          # deploys to. See assets/windows/concat.wxs.
+          # deploys to. See assets/windows/montora.wxs.
           dotnet tool install --global wix --version $env:WIX_VERSION | Out-Null
           # No .wixpdb: everything in stage/ is published, and a debug
           # database for the installer is nothing a release should carry.
           wix build -arch ${{ matrix.wix }} -pdbtype none "-d" "Version=$env:VERSION" "-d" "Root=$PWD" "-d" "Stage=$PWD\stage\$name" `
-            -o "stage\$name.msi" assets\windows\concat.wxs
+            -o "stage\$name.msi" assets\windows\montora.wxs
           if ($LASTEXITCODE -ne 0) { throw "WiX failed with $LASTEXITCODE" }
           if (-not (Test-Path "stage\$name.msi")) { throw "stage\$name.msi is not there" }
           Sign "stage\$name.msi"
@@ -1078,6 +1080,6 @@ jobs:
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: Concat-${{ matrix.platform }}-${{ matrix.arch }}
+          name: Montora-${{ matrix.platform }}-${{ matrix.arch }}
           path: stage/*
           if-no-files-found: error

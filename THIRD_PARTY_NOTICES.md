@@ -166,7 +166,7 @@ the phones it is linked into the app from pyke's builds of it; an Intel
 Mac's bundle carries Microsoft's last shared build for that machine in
 `Contents/Frameworks`. The Linux and Windows bundles ship Microsoft's own
 shared build of ONNX Runtime 1.28.0 beside the binary - `lib/libonnxruntime.so.1.28.0` on Linux,
-`onnxruntime.dll` beside `concat.exe` on Windows, one runtime that the
+`onnxruntime.dll` beside `montora.exe` on Windows, one runtime that the
 `ort` crate and sherpa-onnx share - unmodified, as Microsoft publishes it
 at https://github.com/microsoft/onnxruntime/releases/tag/v1.28.0. Its
 licence (MIT, Copyright (c) Microsoft Corporation) and third-party

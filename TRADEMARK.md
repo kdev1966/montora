@@ -1,5 +1,11 @@
 # Concat trademark policy
 
+> [!NOTE]
+> This is the Concat project's policy, kept here because it governs the
+> Concat name and logo, which are not Montora's. Montora follows it: it is a
+> modified Concat, so it ships under its own name and its own logo, and it
+> names Concat only to say where it comes from.
+
 The Concat **source code** is free software under AGPL-3.0-or-later. The Concat
 **name and logo** are not part of that grant.
 

@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-Concat is pre-1.0. Fixes go into the current minor release only; older
+Montora is pre-1.0. Fixes go into the current minor release only; older
 releases are not patched.
 
 | Version | Supported          |
@@ -15,7 +15,7 @@ releases are not patched.
 Please do not open a public issue for a security problem.
 
 Report it privately through GitHub's advisory form:
-https://github.com/jub0t/Concat/security/advisories/new
+https://github.com/kdev1966/montora/security/advisories/new
 
 Include the version (Settings › About), the platform, and steps to
 reproduce. A proof of concept helps; a project file that triggers the
@@ -31,7 +31,7 @@ What to expect:
 
 ## What counts
 
-Concat runs entirely on your machine. Reports we care about most:
+Montora runs entirely on your machine. Reports we care about most:
 
 - A project file, media file, template or effect package that causes
   code execution, writes outside the project folder, or reads files it

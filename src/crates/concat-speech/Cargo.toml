@@ -28,6 +28,9 @@ bzip2 = "0.6"
 # which the desktop app turns on: a gigabyte of model is not for a phone.
 ort = { workspace = true, optional = true }
 tokenizers = { version = "0.23", optional = true, default-features = false, features = ["fancy-regex"] }
+# For `runtime::ensure_runtime`, the one place that opens ONNX Runtime where
+# it is loaded at first use (an Intel Mac) rather than linked.
+concat-vision = { workspace = true, optional = true, features = ["infer"] }
 
 # What a run says about itself: which model loaded, how long a read took,
 # where a loop ran out. Through the facade, so the window's log file and a
@@ -80,7 +83,7 @@ ort = { workspace = true, optional = true, features = ["coreml"] }
 ort = { workspace = true, optional = true, features = ["directml"] }
 
 [features]
-chatterbox = ["dep:ort", "dep:tokenizers"]
+chatterbox = ["dep:ort", "dep:tokenizers", "dep:concat-vision"]
 
 [lints]
 workspace = true

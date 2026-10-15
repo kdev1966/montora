@@ -4,8 +4,9 @@
     scripts/locales.py            # bring locales/en.json up to date with the
                                   # source, and drop lines no source asks for
     scripts/locales.py --check    # report what each locale lacks; exit 1 on
-                                  # anything out of step, and on a language
-                                  # the app and the READMEs do not both have
+                                  # anything out of step, and on a locale
+                                  # the app does not compile in, or a README
+                                  # in a language the app does not speak
     scripts/locales.py --check --same
                                   # also list each line still in English
     scripts/locales.py --check --strict
@@ -30,11 +31,12 @@ so this script writes those lines of en.json itself:
 
 en.json is the inventory a translator starts from; see TRANSLATING.md.
 
-The app speaks the languages the READMEs are written in, one for one:
-every `locales/<code>.json` is compiled in through `BUILT_IN` in
-src/crates/concat/src/i18n.rs and has a `docs/README.<code>.md` (English's
-is README.md), and every README has its locale. `--check` fails on a
-language one side has and the other does not.
+Every `locales/<code>.json` is compiled in through `BUILT_IN` in
+src/crates/concat/src/i18n.rs. Montora's README is written in fewer
+languages than the app speaks (English's is README.md, the rest are
+`docs/README.<code>.md`), but never in one the app does not speak.
+`--check` fails on a locale that is not compiled in, or a README with no
+locale.
 """
 import json
 import pathlib
@@ -193,8 +195,8 @@ def inventory() -> tuple[dict[str, str], list[str]]:
 
 def parity() -> list[str]:
     """Where the app's languages and the READMEs' part: a locale file the
-    app does not compile in, a code compiled in with no file, a locale
-    with no README, a README with no locale."""
+    app does not compile in, a code compiled in with no file, a README
+    with no locale."""
     files = {path.stem for path in LOCALES.glob("*.json")}
     built_in: set[str] = set()
     for code, file in BUILT_IN_ENTRY.findall(I18N.read_text(encoding="utf-8")):
@@ -210,8 +212,6 @@ def parity() -> list[str]:
             for code in sorted(files - built_in)]
     out += [f"BUILT_IN lists {code}, which has no locales/{code}.json"
             for code in sorted(built_in - files)]
-    out += [f"locales/{code}.json has no docs/README.{code}.md"
-            for code in sorted((files | built_in) - readmes)]
     out += [f"docs/README.{code}.md has no locales/{code}.json"
             for code in sorted(readmes - files)]
     return out
@@ -277,7 +277,7 @@ def main() -> int:
         failed = 1 if problems else check(wanted, "--same" in sys.argv, "--strict" in sys.argv)
         if apart:
             print(f"languages: the app and the READMEs part on {len(apart)}; "
-                  "every locale has a README and every README a locale")
+                  "every locale must be compiled in and every README have a locale")
         return 1 if apart else failed
     write(LOCALES / "en.json", {"_": {"name": "English"}, **wanted})
     print(f"{len(wanted)} strings in {LOCALES / 'en.json'}")

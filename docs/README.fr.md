@@ -1,140 +1,62 @@
 <div align="center">
-<table width="100%">
-  <tr>
-    <td align="left" width="120">
-      <img src="https://cdn.jsdelivr.net/gh/jub0t/Concat@main/assets/concat-mark-dark.png" alt="Concat" width="100" />
-    </td>
-    <td align="">
-      <h1>Concat</h1>
-      <h3 style="margin-top: -10px;">Le remplaçant de CapCut vraiment gratuit, open source et multiplateforme.</h3>
-    </td>
-  </tr>
-</table>
 
-<img src="https://cdn.jsdelivr.net/gh/jub0t/Concat@main/assets/editor.png" alt="Concat editor" width="100%" />
+<img src="../assets/montora_logo_512.png" alt="Montora" width="120" />
 
-<p align="center">
-  <a href="https://github.com/jub0t/Concat/releases"><img src="https://img.shields.io/github/downloads/jub0t/concat/total?style=flat-square&logo=github&logoColor=F8F8F8&label=Downloads&labelColor=212123&color=0568FD" alt="Total Downloads" /></a>
-  <a href="https://github.com/jub0t/Concat/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/jub0t/Concat/ci.yml?style=flat&logo=githubactions&logoColor=F8F8F8&label=Build&labelColor=000000" alt="Build Status" /></a>
-  <a href="https://github.com/jub0t/Concat/releases"><img src="https://img.shields.io/badge/Version-0.2.7-0568FD?style=flat-square&logo=semver&logoColor=F8F8F8&labelColor=212123" alt="Concat Version 0.2.5" /></a>
-  <a href="https://discord.gg/DVuPfpXfqP"><img src="https://img.shields.io/badge/Discord-Join%20the%20server-5865F2?style=flat&logo=discord&logoColor=F8F8F8&labelColor=000000" alt="Join Concat Discord" /></a>
-  <a href="../LICENSE"><img src="https://img.shields.io/badge/License-AGPL%20v3-0568FD?style=flat-square&logo=gnu&logoColor=F8F8F8&labelColor=212123" alt="License: AGPL-3.0-or-later" /></a>
-  <a href="https://concatenate.pages.dev/#sponsor"><img src="https://img.shields.io/badge/Sponsor-Concat-0568FD?style=flat-square&labelColor=212123" alt="Sponsor Concat" /></a>
-</p>
+# Montora
 
-<p align="center">
-  <a href="https://concatenate.pages.dev/#download"><img src="https://cdn.jsdelivr.net/gh/jub0t/Concat@main/assets/download_button.svg" alt="Download Concat" width="220" /></a>
-</p>
+**Un éditeur vidéo libre et gratuit pour Windows, macOS, Linux et Android, avec une IA qui tourne sur votre machine ou chez le fournisseur de votre choix.**
 
-[🇬🇧 English](../README.md) · [🇩🇪 Deutsch](README.de.md) · [🇪🇸 Español](README.es.md) · **🇫🇷 Français** · [🇮🇹 Italiano](README.it.md) · [🇳🇱 Nederlands](README.nl.md) · [🇵🇱 Polski](README.pl.md) · [🇧🇷 Português (Brasil)](README.pt-BR.md) · [🇷🇺 Русский](README.ru.md) · [🇺🇦 Українська](README.uk.md) · [🇹🇷 Türkçe](README.tr.md) · [🇭🇷 Hrvatski](README.hr.md) · [🇮🇩 Bahasa Indonesia](README.id.md) · [🇻🇳 Tiếng Việt](README.vi.md) · [🇹🇭 ไทย](README.th.md) · [🇯🇵 日本語](README.ja.md) · [🇰🇷 한국어](README.ko.md) · [🇨🇳 简体中文](README.zh-Hans.md) · [🇹🇼 繁體中文](README.zh-TW.md) · [🇸🇦 العربية](README.ar.md) · [🇮🇱 עברית](README.he.md) · [🇮🇷 فارسی](README.fa.md) · [🇮🇳 हिन्दी](README.hi.md) · [🇵🇰 اردو](README.ur.md) · [🇧🇩 বাংলা](README.bn.md)
-
-> Traduit du README anglais le 11 octobre 2026. La version anglaise est celle qui est tenue à jour.
-
-## Sponsors payants
-
-<table width="100%">
-  <tr>
-    <td align="center" width="50%">
-      <a href="https://proxyon.io/?ref=concat"><img src="https://cdn.jsdelivr.net/gh/jub0t/Concat@main/assets/proxyon_sponsor_logo.png" alt="Proxyon" width="80" /></a><br />
-      <a href="https://proxyon.io/?ref=concat"><b>Proxyon</b></a><br />
-      <sub>Proxys à l’usage pour les développeurs<br />Code <code>JUB0T</code> pour 20 % de réduction</sub>
-    </td>
-    <td align="center" width="50%">
-      <a href="https://concatenate.pages.dev/#sponsor"><b>Votre logo ici</b></a><br />
-      <sub><a href="https://concatenate.pages.dev/#sponsor">Sponsorisez Concat</a> et votre nom, votre logo et votre lien prennent cette place</sub>
-    </td>
-  </tr>
-</table>
+[🇬🇧 English](../README.md) · **🇫🇷 Français**
 
 </div>
 
+> [!NOTE]
+> Montora est un fork de [Concat](https://github.com/jub0t/concat), créé par Jareer et les contributeurs de Concat. Il en garde le moteur et y ajoute de nouvelles fonctions de montage et des outils d'IA. Le projet en est à ses débuts : aucune version de Montora n'est encore publiée.
 
-## À propos
+## Ce que c'est
 
-Concat est un éditeur vidéo gratuit et open source, une alternative à CapCut pour macOS, Windows, Linux et Android. Il couvre ce pour quoi on ouvre vraiment CapCut : sous-titres automatiques, synthèse vocale, suppression d’arrière-plan, animation par images clés, effets et titres, montage multipiste, export 4K. Sans aucun piège : pas de filigrane, pas de compte, pas d’abonnement, pas d’envoi.
+Montora est un éditeur vidéo pour ce qu'on fait d'habitude avec CapCut : vidéos courtes, montages YouTube, tutoriels, extraits de podcast. Son moteur, hérité de Concat, est écrit en Rust natif avec un compositeur GPU.
 
-Tout tourne en local sur un moteur natif en Rust avec un compositeur GPU. Installez, déposez vos rushes, montez. Les modèles d’IA pour les sous-titres, les voix et le détourage se téléchargent une fois depuis les Réglages et fonctionnent ensuite hors ligne. Vos rushes ne quittent jamais votre disque.
+Grâce à Concat, il sait déjà faire :
 
-**Idéal pour :** TikTok, Reels et Shorts, vidéos YouTube, tutoriels et captures d’écran, extraits de podcast, mèmes.
+- **Sous-titres automatiques** avec un modèle Whisper local.
+- **Synthèse vocale et clonage de voix**, entièrement en local.
+- **Détourage** : personnes, objets, ou masque peint à la main.
+- **Images clés** avec éditeur de courbes : position, échelle, rotation, opacité, volume, paramètres d'effets.
+- **Plus de 170 effets, filtres, transitions et animations de texte**, rendus sur le GPU.
+- **Une timeline multipiste** : couper, rogner, décaler, figer une image, vitesse, modes de fusion.
+- **Export** en H.264, HEVC et AV1, jusqu'en 4K 60 i/s et couleur 10 bits.
+- **Une API** JSON-RPC, gRPC et MCP, pour que des scripts et des agents IA puissent monter aussi.
+- **Ni filigrane, ni compte, ni abonnement.** Vos vidéos ne quittent jamais votre disque, sauf si vous choisissez un fournisseur d'IA en ligne.
 
-**Aussi pour les machines :** une API JSON-RPC, gRPC et MCP, pour que les scripts et les agents IA puissent eux aussi monter de la vidéo avec.
+## Où il va
 
-## Points forts
+1. **Des fournisseurs d'IA au choix.** D'abord les modèles locaux. Ensuite, en option, Ollama ou LM Studio, n'importe quelle API compatible OpenAI (OpenAI, Mistral, Groq, OpenRouter…) ou Anthropic. Vous apportez votre propre clé et choisissez votre budget.
+2. **Monter par le texte.** Supprimez une phrase de la transcription, la vidéo est coupée au même endroit. Retirez les silences et les hésitations en une fois.
+3. **Sous-titres en entrée et en sortie** : import et export SRT.
+4. **Meilleurs passages** : transformer un long enregistrement en clips courts.
+5. **Plus tard** : un assistant de montage, le recadrage automatique en 9:16, le doublage et la recherche dans vos rushs.
 
-- 🚫 **Pas de filigrane. Pas de compte. Pas de paywall.** Jamais.
-- 🔒 **100 % local.** Rien n’est envoyé. Fonctionne hors ligne.
-- 💬 **Sous-titres automatiques.** Whisper en local. Choisissez une taille de modèle, obtenez des sous-titres stylés sur la timeline.
-- 🗣️ **Synthèse vocale + clonage de voix.** Voix locales gratuites, ou n’importe quelle voix à partir de quelques secondes d’enregistrement.
-- 🧍 **Suppression d’arrière-plan.** Personnes, objets, ou peignez le masque vous-même.
-- 🎞️ **Images clés.** Position, échelle, rotation, opacité, volume, paramètres d’effets. Éditeur de courbes intégré.
-- ✨ **Plus de 170 effets, filtres, transitions et animations de texte.** Rendus par le GPU, en direct dans l’aperçu.
-- ✂️ **Montez vite.** Couper, rogner, ripple, fusionner, arrêt sur image, vitesse. Timeline magnétique si vous la voulez.
-- 🎚️ **Multipiste, multi-timeline.** Plusieurs montages dans un projet. Modes de fusion, recadrage, retournements.
-- 📝 **Titres.** Polices, contour, ombre, plaque de fond. Des préréglages pour démarrer.
-- 🎙️ **Nettoyage de voix d’un seul geste.** Débruiter, rehausser la voix, niveler le volume. Plus écureuil, robot, téléphone et compagnie.
-- 📤 **Export.** H.264, HEVC, AV1. Jusqu’à 4K 60, couleur 10 bits.
-- 🦀 **Moteur natif en Rust.** Compositeur GPU, proxys, décodage matériel. La 4K se parcourt sans accroc.
-- 🤖 **Scriptable.** API JSON-RPC, gRPC et MCP, plus une CLI. Les agents IA peuvent monter de la vidéo avec.
-- 🖥️ **macOS, Windows, Linux, Android.** 25 langues. La même appli, les mêmes fichiers de projet.
+## Plateformes
 
-## Téléchargement
+Windows, macOS (Apple silicon et Intel), Linux et Android. Les versions seront publiées sur [GitHub Releases](https://github.com/kdev1966/montora/releases).
 
-Deux portes d’entrée :
+Montora est distribué hors des magasins d'applications. Sur macOS, ouvrez-le la première fois avec clic droit › **Ouvrir**. Sur un Mac Intel, le détourage, l'amélioration d'image et la voix Chatterbox demandent macOS 13.3 ou plus récent.
 
-1. **[Le site web](https://concatenate.pages.dev/#download)** vous donne la bonne version pour votre machine. Commencez ici.
-2. **[GitHub Releases](https://github.com/jub0t/Concat/releases)** propose chaque version pour chaque plateforme, avec installeurs, paquets et sommes de contrôle. Pour quand vous voulez choisir.
+## Compiler depuis les sources
 
-Concat est en **bêta** : ça marche, et il reste des angles. [Dites-le](https://github.com/jub0t/Concat/issues) quand vous en trouvez un.
+Il faut Rust (rustup installe la version figée par le projet), les bibliothèques de développement FFmpeg 7+, cmake et un compilateur C++. Sur macOS :
 
-**Plateformes**
+```sh
+brew install ffmpeg cmake
+cd src
+FFMPEG_DIR="$(brew --prefix ffmpeg)" cargo dev
+```
 
-- ✅ **Windows** · x86_64 et ARM. Un installeur et un `.msi`. Si SmartScreen bloque une version non signée : **Informations complémentaires** › **Exécuter quand même**
-- ✅ **macOS** · Intel et Apple Silicon. Si macOS refuse d’ouvrir une version non signée : `xattr -dr com.apple.quarantine /Applications/Concat.app`
-- ✅ **Linux** · x86_64 et ARM. `.deb`, `.rpm`, `.AppImage` et un paquet Arch. Aussi un Flatpak sur **[Flatpark](https://flatpark.org/apps/app.concat.editor/)**, un dépôt Flatpak communautaire qui empaquette le `.deb` x86_64 de chaque version et se met à jour avec elle
-- ✅ **Android** · téléphones et tablettes
-- ✅ **iOS / iPadOS** · iPhone et iPad, en sideload
+[CONTRIBUTING.md](../CONTRIBUTING.md) couvre Windows, Linux et les vérifications à lancer (en anglais). [ARCHITECTURE.md](../ARCHITECTURE.md) est une carte du moteur, écrite pour Concat et toujours valable pour Montora.
 
-✅ Pris en charge · 🚧 En cours · 🧪 À tester
+## Licence et crédits
 
-La **configuration requise** et la taille des modèles optionnels sont sur [le site web](https://concatenate.pages.dev/guides/system-requirements).
+Montora est un logiciel libre sous [GNU AGPL v3 ou ultérieure](../LICENSE), comme Concat, avec la même [exception pour les plugins](../LICENSE-EXCEPTIONS.md). Les composants tiers sont listés dans [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md).
 
-**[Code signing policy](../CODE_SIGNING.md)**
-
-## Contribuer
-
-> [!IMPORTANT]
-> La meilleure façon de contribuer est de prendre une version sur la page [Releases](https://github.com/jub0t/Concat/releases) et de s’en servir : trouvez où ça casse, et dites où ça pourrait être mieux.
->
-> Prêt à écrire du code ? [CONTRIBUTING.md](../CONTRIBUTING.md) couvre l’installation, l’organisation de l’arborescence, les vérifications à lancer et la licence des contributions. Vous pilotez Concat depuis un script, un service ou un agent ? [La documentation développeur](https://concatenate.pages.dev/docs) couvre l’API Concat et ses transports : JSON-RPC, gRPC et MCP. [Cette Discussion](https://github.com/jub0t/Concat/discussions/3) est celle où le projet a été annoncé.
-> 
-> Les contributeurs peuvent demander un rôle `@Contributor` sur le serveur Discord, il suffit de le demander.
-
-## Contributeurs
-
-<a href="https://github.com/jub0t/Concat/graphs/contributors">
-  <img alt="Contributors" src="https://contrib.rocks/image?repo=jub0t/concat">
-</a>
-
-## Historique des étoiles
-
-<p align="center">
- <a href="https://www.star-history.com/jub0t/concat">
-  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/badge?repo=jub0t/concat&type=rank&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/badge?repo=jub0t/concat&type=rank" />
-   <img alt="Star History Rank" src="https://api.star-history.com/badge?repo=jub0t/concat&type=rank" />
-  </picture>
- </a>
-</p>
-
-<a href="https://www.star-history.com/?repos=jub0t%2Fconcat&type=date&releases=&legend=bottom-right">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=jub0t/concat&type=date&theme=dark&legend=bottom-right" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=jub0t/concat&type=date&legend=bottom-right" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=jub0t/concat&type=date&legend=bottom-right" />
- </picture>
-</a>
-
-## DMCA
-
-Si vous pensez que quelque chose dans ce dépôt, dans ses versions publiées, ou dans un paquet ou un modèle qu’il distribue porte atteinte à vos droits d’auteur, écrivez à [jub0trd@gmail.com](mailto:jub0trd@gmail.com) en indiquant une description de l’œuvre dont vous êtes titulaire, un lien vers l’endroit où le contenu litigieux apparaît ici, vos coordonnées, une déclaration selon laquelle vous estimez de bonne foi que cet usage n’est autorisé ni par vous, ni par votre mandataire, ni par la loi, et une déclaration, sous peine de parjure, attestant que la notification est exacte et que vous êtes le titulaire des droits ou habilité à agir en son nom, revêtue de votre signature manuscrite ou électronique. Les notifications valides sont traitées sans délai, et toute personne dont le contenu a été retiré peut envoyer une contre-notification à la même adresse.
+« Concat » et son logo appartiennent à Jareer (voir [TRADEMARK.md](../TRADEMARK.md)). Montora n'est ni affilié au projet Concat, ni approuvé par lui.

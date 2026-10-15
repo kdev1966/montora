@@ -22,7 +22,7 @@
 #     #312),
 #
 # and passes if none of that has happened by the end of the wait, with the
-# app's own first line ("Concat <version> starting") in the log, so a pass
+# app's own first line ("Montora <version> starting") in the log, so a pass
 # means its native code ran. With --ready, it also requires a line matching
 # REGEX (an extended regular expression) by the end of the wait, and stops
 # waiting once it appears.
@@ -44,7 +44,7 @@
 # whole logcat from before the launch to the end, the app's lines alone,
 # a screenshot of the screen at the end, the window focus, and the
 # device's properties. CI uploads that folder. The package is
-# app.concat.editor unless --package names another.
+# io.github.kdev1966.montora unless --package names another.
 #
 # --no-install starts what is already installed, which leaves a device
 # somebody is using as it was apart from the restart of the app. Runs in
@@ -56,7 +56,7 @@ out=smoke-android
 wait_secs=45
 ready=""
 install=1
-package=app.concat.editor
+package=io.github.kdev1966.montora
 
 usage() {
   echo "usage: $0 [--out DIR] [--wait SECS] [--ready REGEX] [--no-install] [--package NAME] APK" >&2
@@ -108,7 +108,7 @@ collect() {
   # Tombstones for a native crash, where the device lets them be read.
   adb logcat -d -b crash -v threadtime > "$out/logcat-crash.txt" 2>/dev/null
   if [ -f "$logcat_file" ]; then
-    grep -E ' concat +:' "$logcat_file" > "$out/concat.txt" || true
+    grep -E ' montora +:' "$logcat_file" > "$out/montora.txt" || true
   fi
   set -e
 }
@@ -119,9 +119,9 @@ trap '[ -n "$collected" ] || collect' EXIT
 
 fail() {
   collect
-  if [ -s "$out/concat.txt" ]; then
+  if [ -s "$out/montora.txt" ]; then
     echo "-- the app's last lines --"
-    tail -n 60 "$out/concat.txt"
+    tail -n 60 "$out/montora.txt"
   fi
   if [ -n "${GITHUB_ACTIONS:-}" ]; then echo "::error::$*"; else echo "smoke: $*" >&2; fi
   exit 1
@@ -205,9 +205,9 @@ grep -q '^Status: ok' <<< "$started" || fail "am start did not report the launch
 # Only the app's count: a line written by one of its processes, or one
 # that names it (the system's ANR report does). An emulator's own services
 # crash now and then while it settles, and that is not this app failing.
-# The app's lines read "concat  : <module>: <message>".
+# The app's lines read "montora  : <module>: <message>".
 fatal='FATAL EXCEPTION|Fatal signal [0-9]+|panicked at|ANR in |Preview failed'
-fatal+='| concat +: ([A-Za-z0-9_:]+: )?(preview: |could not start|close: event loop exited [(]ok=false[)])'
+fatal+='| montora +: ([A-Za-z0-9_:]+: )?(preview: |could not start|close: event loop exited [(]ok=false[)])'
 
 # Every process the app has had since the launch: the ones the activity
 # manager reports starting, which a process that dies at once still has,
@@ -260,7 +260,7 @@ untestable_here() {
   local seen="its crash dump puts the fault in ONNX Runtime's CPU detection"
   if [ -z "$hit" ]; then
     ! grep -v -q -E 'Fatal signal 11 .*fault addr 0x8 ' <<< "$found" || return 0
-    ! grep -E -q ' concat +:' "$logcat_file" || return 0
+    ! grep -E -q ' montora +:' "$logcat_file" || return 0
     hit=$(grep -E -m 1 -- "$blind" <<< "$crashes" || true)
     [ -n "$hit" ] || return 0
     seen="its crash dump names no frame of the app's (this translation writes none), and the crash matches the one the newer translation names: a SIGSEGV at 0x8 as the library loads, before the app's first line"
@@ -314,8 +314,8 @@ grep -i 'ResumedActivity' "$out/focus.txt" | grep -q "$package/" \
   || fail "the app's activity is not the one in front after ${wait_secs}s"
 # The app's own first line, from android_main: proof its native code ran,
 # and not only that a process by its name exists.
-grep -E -q ' concat +: ([A-Za-z0-9_:]+: )?Concat .* starting' "$logcat_file" \
-  || fail "the app's first line (\"Concat <version> starting\") never reached logcat"
+grep -E -q ' montora +: ([A-Za-z0-9_:]+: )?Montora .* starting' "$logcat_file" \
+  || fail "the app's first line (\"Montora <version> starting\") never reached logcat"
 if [ -n "$ready" ] && [ -z "$seen_ready" ]; then
   fail "no line matching '$ready' within ${wait_secs}s"
 fi
@@ -323,7 +323,7 @@ if ! grep -E 'mCurrentFocus' "$out/focus.txt" | grep -q "$package"; then
   note "the window in focus is not the app's: $(grep -E 'mCurrentFocus' "$out/focus.txt" | tr -s ' ')"
 fi
 echo "-- the app's lines --"
-head -n 40 "$out/concat.txt" || true
+head -n 40 "$out/montora.txt" || true
 echo
 echo "the app is up after ${wait_secs}s with nothing fatal in the log; see $out/"
 say "ok"

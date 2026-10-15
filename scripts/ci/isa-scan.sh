@@ -27,7 +27,7 @@
 # carries AVX2 code it never runs on an older machine: FFmpeg's codecs and
 # scalers, ONNX Runtime's MLAS, sherpa-onnx. And a statically linked binary
 # carries such code too - memchr, aho-corasick, ring and Skia all dispatch
-# this way - so a count of zero is not what to expect from concat itself.
+# this way - so a count of zero is not what to expect from montora itself.
 # scripts/ci/isa-allow.txt says, per file, how much of each class is
 # expected: `any` for a library that dispatches (not even disassembled),
 # or a limit per class for a binary that holds some dispatched code among

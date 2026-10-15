@@ -24,7 +24,7 @@ fn main() -> Result<(), slint::PlatformError> {
     // with no standard output - is not a reason to panic.
     if launch == Ok(Launch::Version) {
         use std::io::Write;
-        let _ = writeln!(std::io::stdout(), "concat {}", env!("CARGO_PKG_VERSION"));
+        let _ = writeln!(std::io::stdout(), "montora {}", env!("CARGO_PKG_VERSION"));
         return Ok(());
     }
     // A desktop's console is its standard error, which a packaged build

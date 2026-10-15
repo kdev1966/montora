@@ -55,11 +55,11 @@ jobs:
           fi
 
       - name: Build
-        run: nix build .#concat --print-build-logs
+        run: nix build .#montora --print-build-logs
 
       # A window cannot open on the runner, so the check is that the binary
       # is there, links, and resolves every library it needs.
       - name: Check the binary links
         run: |
-          file result/bin/.concat-wrapped || file result/bin/concat
-          ldd result/bin/.concat-wrapped 2>/dev/null | grep -i 'not found' && exit 1 || true
+          file result/bin/.montora-wrapped || file result/bin/montora
+          ldd result/bin/.montora-wrapped 2>/dev/null | grep -i 'not found' && exit 1 || true

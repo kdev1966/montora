@@ -40,12 +40,12 @@ android-build = "0.1"
 # sherpa-onnx runtime libraries and the manifest below into an APK. The
 # runtime libraries come from scripts/sherpa-mobile.sh.
 [package.metadata.android]
-package = "app.concat.editor"
-apk_name = "Concat"
+package = "io.github.kdev1966.montora"
+apk_name = "Montora"
 build_targets = ["aarch64-linux-android"]
 runtime_libs = "../../vendor/sherpa-onnx/jniLibs"
 # The launcher icon, at every density Android asks for (48, 72, 96, 144,
-# 192px); rendered from assets/new_concat_logo_512_rounded_light_theme.svg.
+# 192px); rendered from assets/montora_logo.svg.
 resources = "res"
 
 [package.metadata.android.sdk]
@@ -58,7 +58,7 @@ target_sdk_version = 35
 name = "android.permission.INTERNET"
 
 [package.metadata.android.application]
-label = "Concat"
+label = "Montora"
 icon = "@mipmap/ic_launcher"
 # The editor keeps its own state across a rotation; the activity is not
 # recreated for one.

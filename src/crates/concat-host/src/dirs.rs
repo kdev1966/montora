@@ -22,7 +22,7 @@
 use std::path::{Path, PathBuf};
 
 /// The app identifier, which is also the folder name everywhere.
-pub const IDENTIFIER: &str = "app.concat.editor";
+pub const IDENTIFIER: &str = "io.github.kdev1966.montora";
 
 /// The app's own directories on this machine.
 #[derive(Clone, Debug)]
