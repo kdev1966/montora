@@ -1,5 +1,10 @@
 # How Concat works, and where it stands
 
+> [!NOTE]
+> Montora's engine is Concat's. This map was written by the Concat project
+> and is kept as it was: where it says Concat, the code is the same in
+> Montora. The audits it cites are Concat's, in `audit/`.
+
 A map of the engine and the window for someone who wants to change one
 part without reading the rest, written against the tree at `7223d64`
 (11 October 2026, 71 commits past the 0.2.6 tag). Every section names the

@@ -1,23 +1,23 @@
-# Contributing to Concat
+# Contributing to Montora
 
-Thanks for being here. Concat is a video editor that runs entirely on the
-user's machine, and it gets better mostly through people using it hard and
-reporting what broke.
+Thanks for being here. Montora is a video editor that runs on the user's
+machine, a fork of [Concat](https://github.com/jub0t/concat). It gets better
+mostly through people using it hard and reporting what broke.
 
 ## The most valuable thing you can do
 
-Grab a build from the [Releases](https://github.com/jub0t/Concat/releases) page
-and edit a real video with it. Real footage finds what no reading of the
+Grab a build from the [Releases](https://github.com/kdev1966/montora/releases)
+page and edit a real video with it. Real footage finds what no reading of the
 source does. A good bug report — what you did, what happened, your
 OS, the media you used — is worth more than most patches.
 
-Longer-form discussion lives in
-[the contribution discussion](https://github.com/jub0t/Concat/discussions/3)
-and on [Discord](https://discord.gg/DVuPfpXfqP).
+A bug that Concat has too is best reported
+[to Concat](https://github.com/jub0t/concat/issues) as well: Montora takes
+in Concat's fixes.
 
 ## Before you write code
 
-Open an issue or drop into Discord first for anything beyond a small fix. Large
+Open an issue first for anything beyond a small fix. Large
 areas are already in progress or intentionally deferred, and it is genuinely
 no fun to review a big PR that has to be turned down for reasons that were
 invisible from outside.
@@ -75,34 +75,30 @@ around you; the engine avoids cleverness on purpose.
 
 ## Licensing your contribution
 
-Concat is **AGPL-3.0-or-later** ([`LICENSE`](LICENSE)), with a plugin exception
-so that Concat API plugins can carry their own licence
-([`LICENSE-EXCEPTIONS.md`](LICENSE-EXCEPTIONS.md)).
+Montora is **AGPL-3.0-or-later** ([`LICENSE`](LICENSE)), like Concat, with
+Concat's plugin exception so that plugins talking to the API can carry their
+own licence ([`LICENSE-EXCEPTIONS.md`](LICENSE-EXCEPTIONS.md)).
 
-Contributions are accepted under the CLA in [`CLA.md`](CLA.md). **You keep the
-copyright in your work** — the CLA is a licence, not an assignment. It exists so
-that copyright in Concat stays centralised, which is what makes the AGPL
-enforceable against companies that take the code without honouring it.
-
-Sign off your commits to indicate agreement:
-
-```sh
-git commit -s -m "your message"
-```
-
-Typo and documentation fixes do not need a sign-off.
+Montora has no CLA. A contribution is accepted under AGPL-3.0-or-later, the
+licence of the code it joins, and you keep the copyright in it.
 
 ### File headers
 
-Every source file starts with:
+A file that came from Concat keeps its header:
 
 ```rust
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Jareer and Concat contributors
 ```
 
-Keep your own copyright line if you want one — add it, don't replace what's
-there.
+A file new in Montora starts with:
+
+```rust
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Montora contributors
+```
+
+Add your own copyright line if you want one; never replace what's there.
 
 ### Third-party code
 
@@ -113,11 +109,12 @@ catch before a merge than after a release.
 
 ## Trademarks
 
-The code is free to fork. The Concat name and logo are not covered by the AGPL
-grant — see [`TRADEMARK.md`](TRADEMARK.md). Forks are welcome; please ship them
-under your own name.
+The Concat name and logo belong to Concat's author and are not covered by the
+AGPL grant — see [`TRADEMARK.md`](TRADEMARK.md). That is why this fork is
+called Montora and has its own logo. Keep Concat's name out of anything
+Montora shows its users, except to say where Montora comes from.
 
 ## Conduct
 
-[`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) applies to the repo, the Discussions
-and Discord.
+[`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) applies to the repo, its issues and
+its discussions.

@@ -1,30 +1,25 @@
 # Code signing policy
 
-Free code signing provided by [SignPath.io](https://about.signpath.io/),
-certificate by [SignPath Foundation](https://signpath.org/).
+Montora has no paid signing certificate. What each platform gets today:
 
-Concat has applied to SignPath Foundation. Until the application is accepted,
-Windows releases are not signed; once it is, every Windows release is signed
-under this policy.
+| Platform | Signature |
+|---|---|
+| Windows | Not signed yet. SmartScreen may warn on first launch: **More info** › **Run anyway**. Montora will apply to [SignPath Foundation](https://signpath.org/), which signs open-source projects for free. |
+| macOS | Ad-hoc signed, not notarised: Montora has no Apple Developer account and is not distributed through the App Store. Open it the first time with right-click › **Open**. |
+| Linux | Packages are not signed. Each release lists the SHA-256 of every file. |
+| Android | The APK is signed with Montora's own release key, outside the Play Store. |
 
-## What is signed
+The self-updater checks each download against the SHA-256 published with the
+release. A signature on the update manifest, so that a compromised release
+page cannot serve a different build, is planned.
 
-The Windows program (`concat.exe`) and its installers (the setup `.exe` and the
-`.msi`), built from this repository. Libraries Concat ships but does not build
-from its own source, such as FFmpeg's and sherpa-onnx's DLLs and Microsoft's
-ONNX Runtime and Visual C++ runtime, are not signed with this certificate; they
-carry their own maintainers' signatures where they have them.
+## How a release is made
 
-## How a signed release is made
-
-- Every signed file is built by GitHub Actions from a tagged commit of
-  <https://github.com/jub0t/concat>, by the workflows in
-  [`.github/workflows`](.github/workflows) (`release.yml`, which calls
-  `build-app.yml`). Nothing built on a person's machine is signed.
-- A release is built only after the tests pass on the tagged commit, and each
-  Windows bundle is launched before it is uploaded (see
-  [`scripts/ci`](scripts/ci)).
-- Every signing request is approved by hand by an approver, below.
+- Every release file is built by GitHub Actions from a tagged commit of
+  <https://github.com/kdev1966/montora>, by the workflows in
+  [`.github/workflows`](.github/workflows). Nothing built on a person's
+  machine is published.
+- A release is built only after the tests pass on the tagged commit.
 - The workflows and build scripts are part of the source and are reviewed like
   any other change.
 
@@ -32,27 +27,24 @@ carry their own maintainers' signatures where they have them.
 
 | Role | Members |
 |---|---|
-| Committers and reviewers | [@jub0t](https://github.com/jub0t) |
-| Approvers | [@jub0t](https://github.com/jub0t) |
-
-Committers may change the source without further review. Every change from
-anyone else, such as a pull request, is reviewed by a reviewer before it is
-merged. Every member uses multi-factor authentication on GitHub and on
-SignPath.
+| Maintainer, reviewer and release approver | [@kdev1966](https://github.com/kdev1966) |
 
 ## Privacy policy
 
 This program will not transfer any information to other networked systems
 unless specifically requested by the user or the person installing or operating
-it. Concat reaches the network only when you ask it to:
+it. Montora reaches the network only when you ask it to:
 
-- **Check for updates** in Settings asks GitHub for the list of releases, and
-  installing one downloads it from GitHub.
+- **Check for updates** in Settings asks GitHub for the list of Montora's
+  releases, and installing one downloads it from GitHub.
 - **Downloading a model** (transcription, speech, cutout) fetches it from the
-  address shown in Settings.
+  address shown in Settings. By default that is Concat's model mirror on
+  GitHub.
 - **The Remote API** is off by default. Turned on, it listens on this computer
   (`127.0.0.1`) unless you give it another address, and answers only callers
   that hold its token.
+- **A cloud AI provider**, once Montora has them, receives what you send it
+  only after you have chosen that provider and entered your own key.
 
 Nothing is sent about you, your projects or your media, and there is no
 telemetry.
