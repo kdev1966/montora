@@ -46,8 +46,8 @@ DisableProgramGroupPage=yes
 LicenseFile=..\..\LICENSE
 OutputDir={#Out}
 OutputBaseFilename=Concat-{#Version}-windows-{#Suffix}-setup
-SetupIconFile=..\icons\concat.ico
-UninstallDisplayIcon={app}\concat.ico
+SetupIconFile=..\icons\montora.ico
+UninstallDisplayIcon={app}\montora.ico
 UninstallDisplayName=Concat
 Compression=lzma2/max
 SolidCompression=yes
@@ -105,11 +105,11 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 Source: "{#Stage}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "..\icons\concat.ico"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\icons\montora.ico"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{autoprograms}\Concat"; Filename: "{app}\concat.exe"; IconFilename: "{app}\concat.ico"
-Name: "{autodesktop}\Concat"; Filename: "{app}\concat.exe"; IconFilename: "{app}\concat.ico"; Tasks: desktopicon
+Name: "{autoprograms}\Concat"; Filename: "{app}\concat.exe"; IconFilename: "{app}\montora.ico"
+Name: "{autodesktop}\Concat"; Filename: "{app}\concat.exe"; IconFilename: "{app}\montora.ico"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\concat.exe"; Description: "{cm:LaunchProgram,Concat}"; Flags: nowait postinstall skipifsilent

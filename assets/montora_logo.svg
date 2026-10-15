@@ -1,0 +1,13 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <title>Montora</title>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FF8A3D"/>
+      <stop offset="1" stop-color="#D81B60"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#background)"/>
+  <!-- An M in two halves, parted down the middle: the cut a montage is made of. -->
+  <path fill="#FFFFFF" d="M112 392 V128 H186 L246 236 V348 L176 222 V392 Z"/>
+  <path fill="#FFFFFF" d="M400 392 V128 H326 L266 236 V348 L336 222 V392 Z"/>
+</svg>

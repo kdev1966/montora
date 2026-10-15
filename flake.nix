@@ -206,7 +206,7 @@
           ];
 
           postInstall = ''
-            install -Dm644 assets/concat_logo_512.png \
+            install -Dm644 assets/montora_logo_512.png \
               $out/share/icons/hicolor/512x512/apps/concat.png
           '';
 
