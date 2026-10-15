@@ -26,7 +26,9 @@
 
 use std::path::Path;
 
-/// The repository the mirror lives on.
+/// The repository the mirror lives on. Montora still downloads its models
+/// from Concat's mirror: the files are the same, and each is checked against
+/// its sha256 before it is used, wherever it comes from.
 pub const REPO: &str = "jub0t/Concat";
 
 /// The release every model is mirrored on.

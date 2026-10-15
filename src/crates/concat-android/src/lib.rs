@@ -384,7 +384,7 @@ fn android_main(app: slint::android::AndroidApp) {
     // Directories first: the log file is written into one of them.
     activity::name_directories(&app);
     activity::open_log();
-    log::info!("Concat {} starting", env!("CARGO_PKG_VERSION"));
+    log::info!("Montora {} starting", env!("CARGO_PKG_VERSION"));
     if let Err(error) = slint::android::init(app.clone()) {
         log::error!("could not start the Android backend: {error}");
         return;
