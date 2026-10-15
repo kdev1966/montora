@@ -1176,6 +1176,7 @@ dependencies = [
  "image",
  "libc",
  "log",
+ "montora-ai",
  "opener",
  "pollster",
  "rfd",
@@ -1188,17 +1189,6 @@ dependencies = [
  "wayland-client",
  "wgpu",
  "winresource",
-]
-
-[[package]]
-name = "concat-ai"
-version = "0.2.7"
-dependencies = [
- "keyring",
- "serde",
- "serde_json",
- "thiserror 2.0.20",
- "ureq 2.12.1",
 ]
 
 [[package]]
@@ -4159,6 +4149,17 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.119",
+]
+
+[[package]]
+name = "montora-ai"
+version = "0.2.7"
+dependencies = [
+ "keyring",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.20",
+ "ureq 2.12.1",
 ]
 
 [[package]]

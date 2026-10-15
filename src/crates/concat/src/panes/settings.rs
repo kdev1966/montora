@@ -23,6 +23,7 @@ use slint::SharedString;
 use crate::host::{on_ui, spawn};
 use crate::i18n::{self, t, tf};
 use crate::panes::Msg;
+use crate::panes::ai_settings::{AiSettings, Secret};
 use crate::platform;
 use crate::prefs;
 use crate::studio::Studio;
@@ -92,10 +93,40 @@ pub enum SettingsMsg {
         version: Version,
         result: Result<Installed, String>,
     },
+    /// The AI page's provider, by its place in `montora_ai::Provider::ALL`.
+    AiProviderChanged(i32),
+    AiCustomUrlEdited(String),
+    /// What is in the API key field; it prints as dots in any log.
+    AiKeyEdited(Secret),
+    AiKeySave,
+    AiKeyForget,
+    /// Open the provider's page for getting a key.
+    AiGetKey,
+    AiRefreshModels,
+    AiModelChosen(i32),
+    /// The credential store's answer: whether `provider` has a key.
+    AiKeyState {
+        provider: montora_ai::Provider,
+        result: Result<bool, String>,
+    },
+    /// The store saved (`saved`) or forgot a key, or why it could not.
+    AiKeyStored {
+        provider: montora_ai::Provider,
+        saved: bool,
+        result: Result<(), String>,
+    },
+    /// The provider's models, or why it gave none.
+    AiModelsFetched {
+        provider: montora_ai::Provider,
+        result: Result<Vec<String>, montora_ai::AiError>,
+    },
 }
 
 /// The Version page's index in the column of pages.
 const VERSION_PAGE: i32 = 6;
+
+/// The AI page's index in the column of pages.
+const AI_PAGE: i32 = 7;
 
 /// One downloadable model, as the settings sheet shows it.
 #[derive(Clone, Debug)]
@@ -188,6 +219,8 @@ pub struct SettingsPane {
     install: Option<(f32, f32)>,
     /// The running switch's stop flag.
     install_cancel: Arc<AtomicBool>,
+    /// The AI page: the key's state and the provider's models.
+    pub ai: AiSettings,
 }
 
 impl SettingsPane {
@@ -227,6 +260,12 @@ impl SettingsPane {
                 // without a press; the button looks again.
                 if index == VERSION_PAGE && !self.checked {
                     self.check_updates();
+                }
+                // The AI page asks the store about the key, and with one
+                // the provider about its models, each time it is opened:
+                // a key may have been changed in the keychain meanwhile.
+                if index == AI_PAGE {
+                    self.ai.reload(studio);
                 }
             }
             SettingsMsg::ShowLog => {
@@ -410,6 +449,25 @@ impl SettingsPane {
                 if self.install.is_some() {
                     self.install = Some((fetched, total));
                 }
+            }
+            SettingsMsg::AiProviderChanged(index) => self.ai.choose_provider(index, studio),
+            SettingsMsg::AiCustomUrlEdited(text) => self.ai.custom_url_edited(&text, studio),
+            SettingsMsg::AiKeyEdited(text) => self.ai.draft = text,
+            SettingsMsg::AiKeySave => self.ai.save_key(studio),
+            SettingsMsg::AiKeyForget => self.ai.forget_key(studio),
+            SettingsMsg::AiGetKey => AiSettings::open_keys_page(studio),
+            SettingsMsg::AiRefreshModels => self.ai.fetch_models(studio),
+            SettingsMsg::AiModelChosen(index) => self.ai.choose_model(index, studio),
+            SettingsMsg::AiKeyState { provider, result } => {
+                self.ai.key_state(provider, result, studio);
+            }
+            SettingsMsg::AiKeyStored {
+                provider,
+                saved,
+                result,
+            } => self.ai.key_stored(provider, saved, result, studio),
+            SettingsMsg::AiModelsFetched { provider, result } => {
+                self.ai.models_fetched(provider, result, studio);
             }
             SettingsMsg::InstallFinished { version, result } => {
                 self.install = None;
@@ -746,8 +804,18 @@ impl SettingsPane {
         self.voices.iter().map(ModelState::row).collect()
     }
 
+    /// The AI page's model list: the chosen provider's models by id.
+    pub fn ai_model_rows(&self) -> Vec<SharedString> {
+        self.ai
+            .models
+            .iter()
+            .map(|model| model.as_str().into())
+            .collect()
+    }
+
     /// The sheet as Slint shows it.
     pub fn data(&self, studio: &Studio) -> SettingsData {
+        let ai_provider = AiSettings::provider(studio);
         SettingsData {
             open: self.open,
             tab: self.tab,
@@ -815,6 +883,31 @@ impl SettingsPane {
                 .map(fixed_note)
                 .unwrap_or_default()
                 .into(),
+            ai_provider: ai_provider
+                .and_then(|provider| {
+                    montora_ai::Provider::ALL
+                        .iter()
+                        .position(|candidate| *candidate == provider)
+                })
+                .map_or(-1, |index| index as i32),
+            ai_custom: ai_provider == Some(montora_ai::Provider::Custom),
+            ai_custom_url: studio.prefs.ai.custom_url.as_str().into(),
+            ai_needs_key: ai_provider.is_some_and(montora_ai::Provider::needs_key),
+            ai_key_known: self.ai.key_saved.is_some(),
+            ai_key_saved: self.ai.key_saved == Some(true),
+            ai_key_busy: self.ai.key_busy,
+            ai_key_draft: self.ai.draft.0.as_str().into(),
+            ai_has_keys_page: ai_provider
+                .and_then(montora_ai::Provider::keys_url)
+                .is_some(),
+            ai_model: self.ai.model_index(studio),
+            ai_model_name: ai_provider
+                .and_then(|provider| studio.prefs.ai.model(provider))
+                .unwrap_or_default()
+                .into(),
+            ai_fetching: self.ai.fetching,
+            ai_status: self.ai.status.as_str().into(),
+            ai_failed: self.ai.failed,
         }
     }
 }

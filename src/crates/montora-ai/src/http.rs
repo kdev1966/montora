@@ -11,7 +11,7 @@ use crate::provider::Endpoint;
 
 /// Why a call did not give an answer, sorted by what the person can do
 /// about it: fix the key, wait, check the connection, pick another model.
-#[derive(Debug, thiserror::Error, PartialEq, Eq)]
+#[derive(Clone, Debug, thiserror::Error, PartialEq, Eq)]
 pub enum AiError {
     /// The provider needs a key and none is set.
     #[error("no API key is set for this provider")]

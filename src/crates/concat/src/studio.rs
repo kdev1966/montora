@@ -609,6 +609,8 @@ pub struct Models {
     /// is this one.
     pub versions: Rc<VecModel<SharedString>>,
     pub version_details: Rc<VecModel<SharedString>>,
+    /// The AI page's models, as the chosen provider listed them.
+    pub ai_models: Rc<VecModel<SharedString>>,
     pub seats: Rc<VecModel<SeatBox>>,
     pub dividers: Rc<VecModel<DockDivider>>,
     pub recents: Rc<VecModel<RecentProjectData>>,
@@ -674,6 +676,7 @@ impl Models {
             voices: Rc::new(VecModel::default()),
             versions: Rc::new(VecModel::default()),
             version_details: Rc::new(VecModel::default()),
+            ai_models: Rc::new(VecModel::default()),
             seats: Rc::new(VecModel::default()),
             dividers: Rc::new(VecModel::default()),
             recents: Rc::new(VecModel::default()),
@@ -9451,6 +9454,7 @@ impl Studio {
         sync(&models.voices, self.settings.voice_rows());
         sync(&models.versions, self.settings.version_rows());
         sync(&models.version_details, self.settings.version_details());
+        sync(&models.ai_models, self.settings.ai_model_rows());
         app.set_relink(self.relink.data());
         app.set_confirm(self.confirm_data());
 

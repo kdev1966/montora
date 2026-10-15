@@ -90,6 +90,41 @@ pub struct Preferences {
     /// unless the Settings sheet was asked for more or less. CONCAT_LOG in
     /// the environment overrides it for one run.
     pub log_level: Option<String>,
+    /// Settings > AI: the provider the AI features run on and the model
+    /// chosen on it. The keys are not here; see montora_ai::secrets.
+    #[serde(default)]
+    pub ai: AiPrefs,
+}
+
+/// Settings > AI, as remembered.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct AiPrefs {
+    /// The provider, by its id ("groq", "opencode-zen", ...). Absent, or an
+    /// id this build does not know, is none chosen.
+    pub provider: Option<String>,
+    /// The model chosen on each provider, by provider id, so switching back
+    /// to a provider finds the model it had.
+    pub models: std::collections::BTreeMap<String, String>,
+    /// A custom server's address, ending in /v1.
+    pub custom_url: String,
+}
+
+impl AiPrefs {
+    /// The chosen provider, when it is one this build knows.
+    pub fn provider(&self) -> Option<montora_ai::Provider> {
+        self.provider
+            .as_deref()
+            .and_then(montora_ai::Provider::from_id)
+    }
+
+    /// The model chosen on `provider`, if any.
+    pub fn model(&self, provider: montora_ai::Provider) -> Option<&str> {
+        self.models
+            .get(provider.id())
+            .map(String::as_str)
+            .filter(|model| !model.is_empty())
+    }
 }
 
 impl Preferences {
@@ -203,6 +238,31 @@ mod tests {
     const NAMES: [&str; 3] = ["Lime", "Sky", "Violet"];
 
     /// Nothing remembered is the first accent, which is the default.
+    #[test]
+    fn the_ai_choice_round_trips_and_an_older_file_has_none() {
+        let mut prefs = Preferences::default();
+        prefs.ai.provider = Some("groq".into());
+        prefs
+            .ai
+            .models
+            .insert("groq".into(), "llama-3.3-70b-versatile".into());
+        let back: Preferences =
+            serde_json::from_slice(&serde_json::to_vec(&prefs).unwrap()).unwrap();
+        assert_eq!(back.ai, prefs.ai);
+        assert_eq!(back.ai.provider(), Some(montora_ai::Provider::Groq));
+        assert_eq!(
+            back.ai.model(montora_ai::Provider::Groq),
+            Some("llama-3.3-70b-versatile")
+        );
+        assert_eq!(back.ai.model(montora_ai::Provider::Xai), None);
+
+        let older: Preferences = serde_json::from_str(r#"{"dark": true}"#).unwrap();
+        assert_eq!(older.ai, AiPrefs::default());
+        assert_eq!(older.ai.provider(), None);
+        let unknown: Preferences = serde_json::from_str(r#"{"ai": {"provider": "gone"}}"#).unwrap();
+        assert_eq!(unknown.ai.provider(), None);
+    }
+
     #[test]
     fn no_accent_is_the_first() {
         assert_eq!(Preferences::default().accent_index(NAMES), 0);
