@@ -66,7 +66,7 @@ downloads from.
 
 Write what happens through the `log` facade — `log::info!`, `log::warn!`,
 `log::error!` — rather than to standard output or standard error. Every run
-writes `<app data>/logs/concat-<when>.log`, and a packaged build has no
+writes `<app data>/logs/montora-<when>.log`, and a packaged build has no
 terminal for anything that goes anywhere else; `CONCAT_LOG=debug` turns the
 level up. See `src/crates/concat-host/src/logs.rs`.
 
