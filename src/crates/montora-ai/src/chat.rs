@@ -162,10 +162,67 @@ pub fn models(endpoint: &Endpoint) -> Result<Vec<String>, AiError> {
     Ok(ids)
 }
 
+/// Whether the model `id` names writes text, judged by its name. A
+/// provider lists every model it serves in one list - speech to text, text
+/// to speech, safety filters, embeddings, images - with nothing in the
+/// answer that tells them apart, and only the text ones can answer a chat.
+pub fn is_chat_model(id: &str) -> bool {
+    const NOT_TEXT: [&str; 14] = [
+        "whisper",
+        "transcribe",
+        "tts",
+        "orpheus",
+        "playai",
+        "audio",
+        "realtime",
+        "guard",
+        "moderation",
+        "embed",
+        "dall-e",
+        "image",
+        "davinci",
+        "babbage",
+    ];
+    let id = id.to_ascii_lowercase();
+    !NOT_TEXT.iter().any(|word| id.contains(word))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::http::tests::serve_once;
+
+    #[test]
+    fn speech_filters_and_embeddings_are_not_chat_models() {
+        for id in [
+            "llama-3.3-70b-versatile",
+            "qwen/qwen3.8-27b",
+            "openai/gpt-oss-120b",
+            "moonshotai/kimi-k2-instruct",
+            "groq/compound",
+            "grok-4",
+            "gpt-4.1-mini",
+            "big-pickle",
+        ] {
+            assert!(is_chat_model(id), "{id} is a chat model");
+        }
+        for id in [
+            "whisper-large-v3-turbo",
+            "distil-whisper-large-v3-en",
+            "canopylabs/orpheus-v1-english",
+            "playai-tts",
+            "meta-llama/llama-prompt-guard-2-86m",
+            "meta-llama/llama-guard-4-12b",
+            "text-embedding-3-small",
+            "omni-moderation-latest",
+            "gpt-4o-mini-transcribe",
+            "gpt-image-1",
+            "dall-e-3",
+            "tts-1-hd",
+        ] {
+            assert!(!is_chat_model(id), "{id} is not a chat model");
+        }
+    }
 
     fn request() -> ChatRequest {
         ChatRequest {

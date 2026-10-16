@@ -242,8 +242,11 @@ impl AiSettings {
         );
     }
 
-    /// The provider's answer: its models, or why it gave none. A provider
-    /// with no model chosen yet gets the first on its list, so the
+    /// The provider's answer: its models, or why it gave none. Only the
+    /// ones that write text are offered - a speech or filter model chosen
+    /// here would fail every feature - unless that leaves none, when the
+    /// whole list is, so a provider that names its models oddly still
+    /// works. A provider with no model chosen yet gets the first, so the
     /// features have something to ask for.
     pub fn models_fetched(
         &mut self,
@@ -256,7 +259,13 @@ impl AiSettings {
             return;
         }
         match result {
-            Ok(models) => {
+            Ok(all) => {
+                let text: Vec<String> = all
+                    .iter()
+                    .filter(|model| montora_ai::is_chat_model(model))
+                    .cloned()
+                    .collect();
+                let models = if text.is_empty() { all } else { text };
                 self.say(&tf("settings.aiModelsFound", &[&models.len()]), false);
                 if studio.prefs.ai.model(provider).is_none()
                     && let Some(first) = models.first()

@@ -29,7 +29,7 @@ mod provider;
 pub mod secrets;
 mod transcribe;
 
-pub use chat::{ChatReply, ChatRequest, Message, Role, chat, models};
+pub use chat::{ChatReply, ChatRequest, Message, Role, chat, is_chat_model, models};
 pub use http::AiError;
 pub use provider::{Endpoint, Provider};
 pub use transcribe::{MAX_UPLOAD_BYTES, Transcript, TranscriptSegment, TranscriptWord, transcribe};
