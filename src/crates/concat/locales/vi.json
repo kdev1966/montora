@@ -8,7 +8,6 @@
   "captions.centre": "Căn giữa",
   "captions.clipHasNoFile": "Đoạn này không có tệp để phiên âm",
   "captions.clipNoLongerTimeline": "Đoạn phim không còn nằm trên dòng thời gian nữa",
-  "captions.downloadTranscriberModelFirst": "Trước tiên, hãy tải mô hình phiên âm trong Cài đặt › Công cụ phiên âm.",
   "captions.generateCaptions": "Tạo phụ đề",
   "captions.loadingTheModel": "Đang tải mô hình",
   "captions.noVoiceOnTimeline": "Không có clip nào trên dòng thời gian có âm thanh",

@@ -8,7 +8,6 @@
   "captions.centre": "Центр",
   "captions.clipHasNoFile": "У цього кліпу немає файлу для розпізнавання",
   "captions.clipNoLongerTimeline": "Кліпу більше немає на часовій шкалі",
-  "captions.downloadTranscriberModelFirst": "Спершу завантажте модель розпізнавання в Налаштування › Розпізнавання.",
   "captions.generateCaptions": "Створити субтитри",
   "captions.loadingTheModel": "Завантаження моделі",
   "captions.noVoiceOnTimeline": "На часовій шкалі немає кліпів зі звуком",

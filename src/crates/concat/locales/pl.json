@@ -8,7 +8,6 @@
   "captions.centre": "Środek",
   "captions.clipHasNoFile": "Ten klip nie ma pliku do transkrypcji",
   "captions.clipNoLongerTimeline": "Klipu nie ma już na osi czasu",
-  "captions.downloadTranscriberModelFirst": "Najpierw pobierz model transkrypcji w Ustawienia › Transkrypcja.",
   "captions.generateCaptions": "Generuj napisy",
   "captions.loadingTheModel": "Ładowanie modelu",
   "captions.noVoiceOnTimeline": "Żaden klip na osi czasu nie ma dźwięku",

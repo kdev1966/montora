@@ -81,20 +81,203 @@ pub fn transcribe(
     }
     let bytes = std::fs::read(audio)
         .map_err(|error| AiError::File(format!("{shown} could not be read: {error}")))?;
-    if cancel.load(Ordering::Relaxed) {
-        return Err(AiError::Cancelled);
-    }
     let name = audio.file_name().map_or_else(
         || "audio".into(),
         |name| name.to_string_lossy().into_owned(),
     );
+    transcribe_bytes(endpoint, &name, &bytes, language, cancel)
+}
+
+/// Sends `bytes`, an audio file named `name`, to `endpoint` and returns its
+/// words. The name's extension is what the provider reads the format from.
+pub fn transcribe_bytes(
+    endpoint: &Endpoint,
+    name: &str,
+    bytes: &[u8],
+    language: Option<&str>,
+    cancel: &AtomicBool,
+) -> Result<Transcript, AiError> {
+    if bytes.len() as u64 > MAX_UPLOAD_BYTES {
+        return Err(AiError::File(format!(
+            "{name} is {} MB, more than the {} MB a provider takes at once",
+            (bytes.len() as u64).div_ceil(1024 * 1024),
+            MAX_UPLOAD_BYTES / (1024 * 1024)
+        )));
+    }
+    if cancel.load(Ordering::Relaxed) {
+        return Err(AiError::Cancelled);
+    }
     let answer = http::post_multipart(
         endpoint,
         "audio/transcriptions",
-        form(endpoint, &name, &bytes, language),
+        form(endpoint, name, bytes, language),
         TRANSCRIBE_READ,
     )?;
     transcript(&answer)
+}
+
+/// The longest piece of a recording sent in one request: ten minutes, which
+/// as 16 kHz 16-bit mono is 19 MB, inside every provider's 25 MB.
+const PIECE_SECONDS: f64 = 600.0;
+
+/// How far before a piece's end the cut may move to land in a pause rather
+/// than in a word.
+const CUT_SEARCH_SECONDS: f64 = 20.0;
+
+/// Transcribes `samples`, mono at `rate` Hz, however long: in pieces of at
+/// most [`PIECE_SECONDS`], each cut in the quietest moment near its end so
+/// no word is split, each sent as WAV made in memory. The words and
+/// segments come back on one clock, seconds from the first sample.
+/// `progress` is told before each piece is sent, as (pieces done, pieces);
+/// `cancel` is read between pieces.
+pub fn transcribe_samples(
+    endpoint: &Endpoint,
+    samples: &[f32],
+    rate: u32,
+    language: Option<&str>,
+    cancel: &AtomicBool,
+    mut progress: impl FnMut(usize, usize),
+) -> Result<Transcript, AiError> {
+    if samples.is_empty() || rate == 0 {
+        return Err(AiError::File("there is no sound to transcribe".into()));
+    }
+    let pieces = pieces(samples, rate);
+    let mut whole = Transcript {
+        duration: Some(samples.len() as f64 / f64::from(rate)),
+        ..Transcript::default()
+    };
+    for (index, range) in pieces.iter().enumerate() {
+        progress(index, pieces.len());
+        let offset = range.start as f64 / f64::from(rate);
+        let part = transcribe_bytes(
+            endpoint,
+            "voice.wav",
+            &wav(&samples[range.clone()], rate),
+            language,
+            cancel,
+        )?;
+        if whole.language.is_none() {
+            whole.language = part.language;
+        }
+        if !part.text.is_empty() {
+            if !whole.text.is_empty() {
+                whole.text.push(' ');
+            }
+            whole.text.push_str(&part.text);
+        }
+        whole
+            .segments
+            .extend(part.segments.into_iter().map(|segment| TranscriptSegment {
+                start: segment.start + offset,
+                end: segment.end + offset,
+                ..segment
+            }));
+        whole
+            .words
+            .extend(part.words.into_iter().map(|word| TranscriptWord {
+                start: word.start + offset,
+                end: word.end + offset,
+                ..word
+            }));
+    }
+    progress(pieces.len(), pieces.len());
+    Ok(whole)
+}
+
+/// Where `samples` is cut into pieces: none longer than [`PIECE_SECONDS`],
+/// each ending at the quietest tenth of a second in the last
+/// [`CUT_SEARCH_SECONDS`] before that limit.
+fn pieces(samples: &[f32], rate: u32) -> Vec<std::ops::Range<usize>> {
+    let rate = rate as usize;
+    let longest = (PIECE_SECONDS as usize) * rate;
+    let search = (CUT_SEARCH_SECONDS as usize) * rate;
+    let frame = (rate / 10).max(1);
+    let mut pieces = Vec::new();
+    let mut start = 0;
+    while samples.len() - start > longest {
+        let limit = start + longest;
+        let from = limit - search;
+        let quietest = (from..limit - frame)
+            .step_by(frame)
+            .min_by(|&a, &b| {
+                energy(&samples[a..a + frame]).total_cmp(&energy(&samples[b..b + frame]))
+            })
+            .map_or(limit, |at| at + frame / 2);
+        pieces.push(start..quietest);
+        start = quietest;
+    }
+    pieces.push(start..samples.len());
+    pieces
+}
+
+/// The mean square of `samples`: how loud they are.
+fn energy(samples: &[f32]) -> f32 {
+    samples.iter().map(|sample| sample * sample).sum::<f32>() / samples.len().max(1) as f32
+}
+
+/// `samples` as a 16-bit mono WAV file.
+fn wav(samples: &[f32], rate: u32) -> Vec<u8> {
+    let data = (samples.len() * 2) as u32;
+    let mut bytes = Vec::with_capacity(44 + data as usize);
+    bytes.extend_from_slice(b"RIFF");
+    bytes.extend_from_slice(&(36 + data).to_le_bytes());
+    bytes.extend_from_slice(b"WAVEfmt ");
+    bytes.extend_from_slice(&16u32.to_le_bytes());
+    bytes.extend_from_slice(&1u16.to_le_bytes()); // PCM
+    bytes.extend_from_slice(&1u16.to_le_bytes()); // mono
+    bytes.extend_from_slice(&rate.to_le_bytes());
+    bytes.extend_from_slice(&(rate * 2).to_le_bytes());
+    bytes.extend_from_slice(&2u16.to_le_bytes());
+    bytes.extend_from_slice(&16u16.to_le_bytes());
+    bytes.extend_from_slice(b"data");
+    bytes.extend_from_slice(&data.to_le_bytes());
+    for sample in samples {
+        let value = (sample.clamp(-1.0, 1.0) * f32::from(i16::MAX)) as i16;
+        bytes.extend_from_slice(&value.to_le_bytes());
+    }
+    bytes
+}
+
+impl Transcript {
+    /// The words as caption lines: a line ends at the end of a sentence,
+    /// at a pause longer than `pause` seconds, or before the word that
+    /// would take it past `max_chars`. Without word timings, the provider's
+    /// own segments.
+    pub fn lines(&self, max_chars: usize, pause: f64) -> Vec<TranscriptSegment> {
+        if self.words.is_empty() {
+            return self
+                .segments
+                .iter()
+                .filter(|segment| !segment.text.is_empty())
+                .cloned()
+                .collect();
+        }
+        let mut lines: Vec<TranscriptSegment> = Vec::new();
+        let mut open: Option<TranscriptSegment> = None;
+        for word in self.words.iter().filter(|word| !word.word.is_empty()) {
+            if let Some(line) = open.take() {
+                let longer = line.text.chars().count() + 1 + word.word.chars().count();
+                let ended = line.text.ends_with(['.', '?', '!', '。', '？', '！']);
+                if ended || longer > max_chars || word.start - line.end > pause {
+                    lines.push(line);
+                } else {
+                    open = Some(TranscriptSegment {
+                        end: word.end,
+                        text: format!("{} {}", line.text, word.word),
+                        ..line
+                    });
+                    continue;
+                }
+            }
+            open = Some(TranscriptSegment {
+                start: word.start,
+                end: word.end,
+                text: word.word.clone(),
+            });
+        }
+        lines.extend(open);
+        lines
+    }
 }
 
 /// The form a transcription is sent as: the file, the model, and a request
@@ -284,6 +467,139 @@ mod tests {
         let endpoint = Endpoint::new("http://127.0.0.1:9/v1", None, "m");
         let error = transcribe(&endpoint, &audio, None, &AtomicBool::new(true)).unwrap_err();
         assert_eq!(error, AiError::Cancelled);
+    }
+
+    #[test]
+    fn a_short_recording_is_one_piece_and_a_long_one_is_cut_in_a_pause() {
+        let rate = 100;
+        assert_eq!(pieces(&vec![0.5; 30 * rate as usize], rate), vec![0..3000]);
+        // Twenty-five minutes of sound with one silent tenth of a second
+        // eight seconds before the ten-minute mark.
+        let mut samples = vec![0.5; 1500 * rate as usize];
+        let quiet = (592 * rate) as usize;
+        samples[quiet..quiet + 10].fill(0.0);
+        let cuts = pieces(&samples, rate);
+        assert_eq!(cuts.len(), 3, "{cuts:?}");
+        assert_eq!(cuts[0], 0..quiet + 5);
+        assert!(cuts.windows(2).all(|pair| pair[0].end == pair[1].start));
+        assert_eq!(cuts.last().unwrap().end, samples.len());
+        assert!(cuts.iter().all(|piece| piece.len() <= 600 * rate as usize));
+    }
+
+    #[test]
+    fn a_wav_has_its_header_and_one_sample_in_two_bytes() {
+        let bytes = wav(&[0.0, 1.0, -1.0, 2.0], 16_000);
+        assert_eq!(&bytes[..4], b"RIFF");
+        assert_eq!(&bytes[8..16], b"WAVEfmt ");
+        assert_eq!(
+            u32::from_le_bytes(bytes[24..28].try_into().unwrap()),
+            16_000
+        );
+        assert_eq!(u32::from_le_bytes(bytes[40..44].try_into().unwrap()), 8);
+        assert_eq!(bytes.len(), 44 + 8);
+        assert_eq!(i16::from_le_bytes([bytes[46], bytes[47]]), i16::MAX);
+        assert_eq!(
+            i16::from_le_bytes([bytes[50], bytes[51]]),
+            i16::MAX,
+            "clamped"
+        );
+    }
+
+    #[test]
+    fn samples_are_sent_as_wav_and_come_back_on_their_own_clock() {
+        let (base, seen) = serve_once(200, &[], VERBOSE);
+        let endpoint = Endpoint::new(&base, Some("k".into()), "whisper-large-v3-turbo");
+        let mut told = Vec::new();
+        let transcript = transcribe_samples(
+            &endpoint,
+            &[0.1; 1600],
+            16_000,
+            None,
+            &AtomicBool::new(false),
+            |done, all| told.push((done, all)),
+        )
+        .unwrap();
+        assert_eq!(told, vec![(0, 1), (1, 1)]);
+        assert_eq!(transcript.words.len(), 5);
+        assert_eq!(transcript.duration, Some(0.1));
+        let body = String::from_utf8_lossy(&seen.recv().unwrap().body).into_owned();
+        assert!(body.contains("filename=\"voice.wav\"\r\nContent-Type: audio/wav"));
+    }
+
+    #[test]
+    fn no_sound_is_refused_before_anything_is_sent() {
+        let endpoint = Endpoint::new("http://127.0.0.1:9/v1", None, "m");
+        let error = transcribe_samples(
+            &endpoint,
+            &[],
+            16_000,
+            None,
+            &AtomicBool::new(false),
+            |_, _| {},
+        )
+        .unwrap_err();
+        assert!(matches!(error, AiError::File(_)), "{error:?}");
+    }
+
+    fn word(word: &str, start: f64, end: f64) -> TranscriptWord {
+        TranscriptWord {
+            word: word.into(),
+            start,
+            end,
+        }
+    }
+
+    #[test]
+    fn words_become_lines_at_sentences_pauses_and_length() {
+        let transcript = Transcript {
+            words: vec![
+                word("Bonjour", 0.0, 0.5),
+                word("à", 0.6, 0.7),
+                word("tous.", 0.7, 1.0),
+                word("Aujourd'hui", 1.2, 1.8),
+                word("on", 1.8, 1.9),
+                // A long pause: a new line.
+                word("monte", 3.5, 3.8),
+                word("une", 3.8, 3.9),
+                word("vidéo", 3.9, 4.3),
+                word("assez", 4.3, 4.6),
+                word("longue", 4.6, 5.0),
+                word("pour", 5.0, 5.2),
+                word("dépasser", 5.2, 5.7),
+                word("la", 5.7, 5.8),
+                word("ligne", 5.8, 6.1),
+            ],
+            ..Transcript::default()
+        };
+        let lines = transcript.lines(32, 0.8);
+        let text: Vec<&str> = lines.iter().map(|line| line.text.as_str()).collect();
+        assert_eq!(
+            text,
+            [
+                "Bonjour à tous.",
+                "Aujourd'hui on",
+                "monte une vidéo assez longue",
+                "pour dépasser la ligne",
+            ]
+        );
+        assert_eq!((lines[0].start, lines[0].end), (0.0, 1.0));
+        assert_eq!((lines[2].start, lines[2].end), (3.5, 5.0));
+        assert!(lines.iter().all(|line| line.text.chars().count() <= 32));
+    }
+
+    #[test]
+    fn without_word_timings_the_lines_are_the_segments() {
+        let transcript = transcript_from(VERBOSE_NO_WORDS);
+        let lines = transcript.lines(42, 0.8);
+        assert_eq!(lines.len(), 1);
+        assert_eq!(lines[0].text, "Hi there.");
+    }
+
+    const VERBOSE_NO_WORDS: &str =
+        r#"{"text": "Hi there.", "segments": [{"start": 0.5, "end": 1.5, "text": " Hi there."}]}"#;
+
+    fn transcript_from(json: &str) -> Transcript {
+        transcript(&serde_json::from_str(json).unwrap()).unwrap()
     }
 
     #[test]

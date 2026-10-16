@@ -8,7 +8,6 @@
   "captions.centre": "Sredina",
   "captions.clipHasNoFile": "Ovaj klip nema datoteku za transkripciju",
   "captions.clipNoLongerTimeline": "Klip više nije na vremenskoj liniji",
-  "captions.downloadTranscriberModelFirst": "Prvo preuzmite model za transkripciju u Postavke › Transkriber.",
   "captions.generateCaptions": "Generiraj titlove",
   "captions.loadingTheModel": "Učitavanje modela",
   "captions.noVoiceOnTimeline": "Nijedan isječak na vremenskoj crti nema zvuk",

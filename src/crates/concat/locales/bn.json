@@ -8,7 +8,6 @@
   "captions.centre": "কেন্দ্রে",
   "captions.clipHasNoFile": "এই ক্লিপে ট্রান্সক্রাইব করার মতো কোনো ফাইল নেই",
   "captions.clipNoLongerTimeline": "ক্লিপটি আর টাইমলাইনে নেই",
-  "captions.downloadTranscriberModelFirst": "আগে সেটিংস › ট্রান্সক্রাইবার থেকে একটি ট্রান্সক্রাইবার মডেল ডাউনলোড করুন।",
   "captions.generateCaptions": "ক্যাপশন তৈরি করুন",
   "captions.loadingTheModel": "মডেল লোড হচ্ছে",
   "captions.noVoiceOnTimeline": "টাইমলাইনে শব্দসহ কোনো ক্লিপ নেই",

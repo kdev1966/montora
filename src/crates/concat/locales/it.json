@@ -8,7 +8,6 @@
   "captions.centre": "Centro",
   "captions.clipHasNoFile": "Questa clip non ha un file da trascrivere",
   "captions.clipNoLongerTimeline": "The clip is no longer on the timeline",
-  "captions.downloadTranscriberModelFirst": "Scarica prima un modello di trascrizione in Impostazioni › Trascrizione.",
   "captions.generateCaptions": "Genera sottotitoli",
   "captions.loadingTheModel": "Caricamento del modello",
   "captions.noVoiceOnTimeline": "Nessuna clip nella timeline ha audio",

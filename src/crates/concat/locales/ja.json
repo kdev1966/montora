@@ -8,7 +8,6 @@
   "captions.centre": "中央",
   "captions.clipHasNoFile": "このクリップには文字起こしするファイルがありません",
   "captions.clipNoLongerTimeline": "クリップはタイムライン上にありません",
-  "captions.downloadTranscriberModelFirst": "まず「設定 › 文字起こし」でモデルをダウンロードしてください。",
   "captions.generateCaptions": "字幕を生成",
   "captions.loadingTheModel": "モデルを読み込み中",
   "captions.noVoiceOnTimeline": "音声のあるクリップがタイムラインにありません",

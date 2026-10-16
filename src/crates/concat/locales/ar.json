@@ -8,7 +8,6 @@
   "captions.centre": "الوسط",
   "captions.clipHasNoFile": "لا يحتوي هذا المقطع على ملف لتفريغه نصيًا",
   "captions.clipNoLongerTimeline": "لم يعد المقطع على المخطط الزمني",
-  "captions.downloadTranscriberModelFirst": "نزّل أولًا نموذج تفريغ نصي من الإعدادات › التفريغ النصي.",
   "captions.generateCaptions": "إنشاء تسميات توضيحية",
   "captions.loadingTheModel": "جارٍ تحميل النموذج",
   "captions.noVoiceOnTimeline": "لا يوجد مقطع بصوت في المخطط الزمني",

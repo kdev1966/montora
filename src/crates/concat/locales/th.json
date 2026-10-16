@@ -8,7 +8,6 @@
   "captions.centre": "กึ่งกลาง",
   "captions.clipHasNoFile": "คลิปนี้ไม่มีไฟล์ให้ถอดเสียง",
   "captions.clipNoLongerTimeline": "คลิปนี้ไม่อยู่บนไทม์ไลน์แล้ว",
-  "captions.downloadTranscriberModelFirst": "ดาวน์โหลดโมเดลถอดเสียงก่อนที่ การตั้งค่า › ตัวถอดเสียง",
   "captions.generateCaptions": "สร้างคำบรรยาย",
   "captions.loadingTheModel": "กำลังโหลดโมเดล",
   "captions.noVoiceOnTimeline": "ไม่มีคลิปที่มีเสียงบนไทม์ไลน์",

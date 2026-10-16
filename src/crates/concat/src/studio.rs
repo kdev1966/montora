@@ -9459,13 +9459,9 @@ impl Studio {
         app.set_confirm(self.confirm_data());
 
         // The speech sheets, and the lists they choose from.
-        let transcribers = installed(&self.settings.transcribers);
         sync(
             &models.caption_models,
-            transcribers
-                .iter()
-                .map(|model| SharedString::from(model.name.as_str()))
-                .collect(),
+            crate::panes::captions::model_names(self),
         );
         app.set_captions(self.captions.data(self));
         let voices = installed(&self.settings.voices);

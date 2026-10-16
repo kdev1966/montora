@@ -8,7 +8,6 @@
   "captions.centre": "中心",
   "captions.clipHasNoFile": "此片段没有可转录的文件",
   "captions.clipNoLongerTimeline": "该片段已不在时间线上",
-  "captions.downloadTranscriberModelFirst": "请先在“设置 › 转录器”中下载转录模型。",
   "captions.generateCaptions": "生成字幕",
   "captions.loadingTheModel": "正在加载模型",
   "captions.noVoiceOnTimeline": "时间线上没有带声音的片段",

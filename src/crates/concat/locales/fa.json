@@ -8,7 +8,6 @@
   "captions.centre": "مرکز",
   "captions.clipHasNoFile": "این کلیپ هیچ فایلای برای رونویسی ندارد",
   "captions.clipNoLongerTimeline": "این کلیپ دیگر روی تایم‌لاین نیست",
-  "captions.downloadTranscriberModelFirst": "ابتدا یک مدل Transcriber را از «تنظیمات › Transcriber» دانلود کنید.",
   "captions.generateCaptions": "ساخت زیرنویس‌ها",
   "captions.loadingTheModel": "در حال بارگذاری مدل",
   "captions.noVoiceOnTimeline": "هیچ کلیپی در خط زمان صدا ندارد",

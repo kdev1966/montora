@@ -8,7 +8,6 @@
   "captions.centre": "Mitte",
   "captions.clipHasNoFile": "Dieser Clip hat keine Datei zum Transkribieren",
   "captions.clipNoLongerTimeline": "The clip is no longer on the timeline",
-  "captions.downloadTranscriberModelFirst": "Lade zuerst ein Transkriptionsmodell unter Einstellungen › Transkription herunter.",
   "captions.generateCaptions": "Untertitel erzeugen",
   "captions.loadingTheModel": "Modell wird geladen",
   "captions.noVoiceOnTimeline": "Kein Clip auf der Zeitleiste hat Ton",

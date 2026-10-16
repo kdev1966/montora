@@ -8,7 +8,6 @@
   "captions.centre": "Orta",
   "captions.clipHasNoFile": "Bu klibin yazıya dökülecek dosyası yok",
   "captions.clipNoLongerTimeline": "The clip is no longer on the timeline",
-  "captions.downloadTranscriberModelFirst": "Önce Ayarlar › Yazıya dökme bölümünden bir model indirin.",
   "captions.generateCaptions": "Altyazı oluştur",
   "captions.loadingTheModel": "Model yükleniyor",
   "captions.noVoiceOnTimeline": "Zaman çizelgesinde sesi olan klip yok",

@@ -8,7 +8,6 @@
   "captions.centre": "Midden",
   "captions.clipHasNoFile": "Deze clip heeft geen bestand om te transcriberen",
   "captions.clipNoLongerTimeline": "De clip staat niet meer op de tijdlijn",
-  "captions.downloadTranscriberModelFirst": "Download eerst een transcriptiemodel via Instellingen › Transcriptie.",
   "captions.generateCaptions": "Ondertitels genereren",
   "captions.loadingTheModel": "Model laden",
   "captions.noVoiceOnTimeline": "Geen clip op de tijdlijn heeft geluid",

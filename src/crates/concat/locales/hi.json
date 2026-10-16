@@ -8,7 +8,6 @@
   "captions.centre": "बीच में",
   "captions.clipHasNoFile": "इस क्लिप में ट्रांसक्राइब करने के लिए कोई फ़ाइल नहीं है",
   "captions.clipNoLongerTimeline": "यह क्लिप अब टाइमलाइन पर नहीं है",
-  "captions.downloadTranscriberModelFirst": "पहले सेटिंग › ट्रांसक्राइबर में एक ट्रांसक्राइबर मॉडल डाउनलोड करें।",
   "captions.generateCaptions": "कैप्शन बनाएं",
   "captions.loadingTheModel": "मॉडल लोड हो रहा है",
   "captions.noVoiceOnTimeline": "टाइमलाइन पर किसी क्लिप में आवाज़ नहीं है",

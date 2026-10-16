@@ -8,7 +8,6 @@
   "captions.centre": "가운데",
   "captions.clipHasNoFile": "이 클립에는 받아쓸 파일이 없습니다",
   "captions.clipNoLongerTimeline": "The clip is no longer on the timeline",
-  "captions.downloadTranscriberModelFirst": "먼저 설정 › 받아쓰기에서 모델을 다운로드하세요.",
   "captions.generateCaptions": "자막 생성",
   "captions.loadingTheModel": "모델 불러오는 중",
   "captions.noVoiceOnTimeline": "타임라인에 소리가 있는 클립이 없습니다",
