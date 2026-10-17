@@ -508,6 +508,7 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
                 // open, so the window stays up. Its notice is published
                 // here or nobody would see it.
                 log::warn!("close: not closing, project could not be saved: {error}");
+                shell.studio.borrow_mut().offer_quit_without_saving(error);
                 shell.studio.borrow_mut().refresh_art();
                 shell.studio.borrow().publish(&app, &shell.models);
             }
@@ -528,6 +529,7 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
             if let Err(error) = outcome {
                 saved.set(false);
                 log::warn!("close: not closing, project could not be saved: {error}");
+                shell.studio.borrow_mut().offer_quit_without_saving(error);
                 shell.studio.borrow_mut().refresh_art();
                 shell.studio.borrow().publish(&app, &shell.models);
             }
@@ -1912,6 +1914,7 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
                         // Unsaved work is worth more than the window: the
                         // project stays open and the reason is shown.
                         log::warn!("close: not closing, project could not be saved: {error}");
+                        shell.studio.borrow_mut().offer_quit_without_saving(error);
                         shell.studio.borrow_mut().refresh_art();
                         shell.studio.borrow().publish(&app, &shell.models);
                         return;
