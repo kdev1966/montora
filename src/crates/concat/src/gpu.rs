@@ -88,13 +88,22 @@ fn integrated_is_safer() -> bool {
             .iter()
             .map(wgpu::Adapter::get_info)
             .collect();
+    amd_beside_integrated(&adapters)
+}
+
+/// Whether `adapters` hold an AMD discrete GPU and an integrated one.
+/// Metal gives no PCI ids (wgpu reports vendor 0 there), so AMD is also
+/// known by its name: "AMD Radeon R9 M370X".
+fn amd_beside_integrated(adapters: &[wgpu::AdapterInfo]) -> bool {
     let integrated = adapters
         .iter()
         .any(|info| info.device_type == wgpu::DeviceType::IntegratedGpu);
-    // 0x1002 is AMD's PCI vendor id.
-    let amd = adapters
-        .iter()
-        .any(|info| info.device_type == wgpu::DeviceType::DiscreteGpu && info.vendor == 0x1002);
+    let amd = adapters.iter().any(|info| {
+        let name = info.name.to_ascii_lowercase();
+        // 0x1002 is AMD's PCI vendor id.
+        info.device_type == wgpu::DeviceType::DiscreteGpu
+            && (info.vendor == 0x1002 || name.contains("amd") || name.contains("radeon"))
+    });
     integrated && amd
 }
 
@@ -231,5 +240,60 @@ pub fn driver_of(info: &wgpu::AdapterInfo) -> String {
         "driver unknown".to_owned()
     } else {
         format!("driver {named}")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn adapter(name: &str, device_type: wgpu::DeviceType, vendor: u32) -> wgpu::AdapterInfo {
+        wgpu::AdapterInfo {
+            name: name.into(),
+            vendor,
+            ..wgpu::AdapterInfo::new(device_type, wgpu::Backend::Metal)
+        }
+    }
+
+    #[test]
+    fn an_amd_gpu_beside_an_integrated_one_is_found_by_name_on_metal() {
+        // What Metal lists on a 2015 MacBook Pro: no vendor ids.
+        let mac = [
+            adapter("AMD Radeon R9 M370X", wgpu::DeviceType::DiscreteGpu, 0),
+            adapter(
+                "Intel Iris Pro Graphics",
+                wgpu::DeviceType::IntegratedGpu,
+                0,
+            ),
+        ];
+        assert!(amd_beside_integrated(&mac));
+    }
+
+    #[test]
+    fn an_amd_gpu_is_found_by_its_vendor_id() {
+        let pc = [
+            adapter("Discrete", wgpu::DeviceType::DiscreteGpu, 0x1002),
+            adapter("Integrated", wgpu::DeviceType::IntegratedGpu, 0),
+        ];
+        assert!(amd_beside_integrated(&pc));
+    }
+
+    #[test]
+    fn other_gpus_keep_the_discrete_one() {
+        let nvidia = [
+            adapter("NVIDIA GeForce GT 750M", wgpu::DeviceType::DiscreteGpu, 0),
+            adapter(
+                "Intel Iris Pro Graphics",
+                wgpu::DeviceType::IntegratedGpu,
+                0,
+            ),
+        ];
+        assert!(!amd_beside_integrated(&nvidia));
+        let amd_alone = [adapter(
+            "AMD Radeon Pro 560X",
+            wgpu::DeviceType::DiscreteGpu,
+            0,
+        )];
+        assert!(!amd_beside_integrated(&amd_alone));
     }
 }
