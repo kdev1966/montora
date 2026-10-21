@@ -2,7 +2,13 @@
 
 Décidé le 21 octobre 2026. Une branche et une PR par étape ; chaque fonction est
 testée dans l'app avant son merge ; la version sort après une pré-version testée sur
-le Mac (macOS 12, Intel) et le téléphone Android.
+le Mac (macOS 12, Intel).
+
+**macOS d'abord.** La 0.3.0 vise le Mac seul : chaque fonction est faite et testée
+sur macOS, et la version sort en `.dmg` Intel et Apple Silicon. La CI continue de
+compiler et tester Linux, Windows et Android à chaque push, comme filet de sécurité,
+mais un problème propre à ces plateformes n'est corrigé que s'il bloque un merge.
+Android, Windows et Linux sont repris pour la 0.4.
 
 ## Phase 1 — Base solide
 
@@ -10,8 +16,9 @@ le Mac (macOS 12, Intel) et le téléphone Android.
       GPU intégré sur un Mac dont la carte dédiée est une AMD sous macOS 12 ;
       validation des appels indirects de wgpu désactivée (fait, non commité) ;
       `MONTORA_GPU` gardé comme dérogation.
-- [ ] 2. PR `feat/ai-providers` → `main` (IA, Réglages › IA, sous-titres en ligne), merge.
-      PR Dependabot #4 examinée.
+- [ ] 2. PR `feat/ai-providers` → `main` (#5, en brouillon : IA, Réglages › IA,
+      sous-titres en ligne), merge. Les PR Dependabot (#1, #4) attendent la 0.4, sauf
+      mise à jour nécessaire au Mac.
 
 ## Phase 2 — Fonctions
 
@@ -27,7 +34,8 @@ le Mac (macOS 12, Intel) et le téléphone Android.
 ## Phase 3 — Sortie
 
 - [ ] 11. Checklist de tests manuels par fonction.
-- [ ] 12. Pré-version `v0.3.0-rc.1` (brouillon) : installeurs des 4 bureaux + APK.
+- [ ] 12. Pré-version `v0.3.0-rc.1` (brouillon) : `.dmg` macOS Intel et Apple Silicon
+      seulement (release.yml réduit au Mac pour cette version).
 - [ ] 13. Corrections, puis `v0.3.0`.
 
 ## Déjà fait (branche feat/ai-providers)
