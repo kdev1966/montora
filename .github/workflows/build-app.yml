@@ -6,11 +6,11 @@ name: Build app
 # target:
 #
 #   macOS    arm64 (Apple silicon)   x86_64 (Intel)     -> Montora-*.dmg
-#   Linux    x86_64                                     -> Montora-*.deb, .rpm, .AppImage, .pkg.tar.zst
-#   Windows  x86_64                                     -> Montora-*-setup.exe, .msi
 #
-# Linux on ARM and Windows on ARM are not built: Montora ships for the
-# machines above and Android (mobile.yml), nothing else.
+# One platform at a time: Montora is being made solid on macOS first, so
+# only the two Mac targets are built. The Windows and Linux steps below
+# are kept, each behind its `matrix.platform`, for when their rows come
+# back to the matrix; see docs/montora-0.3.0-plan.md.
 #
 # Installers and binaries only: the program is not shipped as an archive
 # of a folder to unpack, so what a person downloads is what they run.
@@ -143,29 +143,11 @@ jobs:
             os: macos-15-intel
             target: x86_64-apple-darwin
             sherpa: osx-x64
-          # 22.04, not latest: the binary links the build machine's glibc,
-          # so the oldest supported runner is what keeps it runnable on
-          # older distributions.
-          - platform: linux
-            arch: x86_64
-            os: ubuntu-22.04
-            target: x86_64-unknown-linux-gnu
-            ffmpeg: linux64
-            sherpa: linux-x64
-            ort: x64
-            nfpm: amd64
-            appimage: x86_64
-          - platform: windows
-            arch: x86_64
-            os: windows-2022
-            target: x86_64-pc-windows-msvc
-            ffmpeg: win64
-            sherpa: win-x64
-            ort: win-x64
-            llvm: win64
-            vc: x64
-            inno: x64compatible
-            wix: x64
+          # Windows' row, for its turn: platform windows, arch x86_64, os
+          # windows-2022, target x86_64-pc-windows-msvc, ffmpeg win64,
+          # sherpa and ort win-x64, llvm win64, vc x64, inno x64compatible,
+          # wix x64. Linux's: ubuntu-22.04 (the oldest glibc), ffmpeg
+          # linux64, sherpa linux-x64, ort x64, nfpm amd64, appimage x86_64.
     runs-on: ${{ matrix.os }}
     # The slowest target is Intel macOS, whose build alone ran past an hour
     # in v0.2.7-rc.1. The steps that can hang have timeouts of their own,
