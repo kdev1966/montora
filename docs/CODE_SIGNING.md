@@ -17,7 +17,7 @@ page cannot serve a different build, is planned.
 
 - Every release file is built by GitHub Actions from a tagged commit of
   <https://github.com/kdev1966/montora>, by the workflows in
-  [`.github/workflows`](.github/workflows). Nothing built on a person's
+  [`.github/workflows`](../.github/workflows). Nothing built on a person's
   machine is published.
 - A release is built only after the tests pass on the tagged commit.
 - The workflows and build scripts are part of the source and are reviewed like
