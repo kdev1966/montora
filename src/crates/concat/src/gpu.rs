@@ -76,7 +76,7 @@ pub unsafe fn apply_choice(choice: Option<&str>) {
 /// R9 M370X hung on the effect cards until the kernel restarted it and took
 /// the session down; the Intel Iris Pro beside it draws them.
 fn integrated_is_safer() -> bool {
-    if !concat_host::machine::macos_major().is_some_and(|major| major <= 12) {
+    if concat_host::machine::macos_major().is_none_or(|major| major > 12) {
         return false;
     }
     let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
