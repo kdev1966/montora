@@ -37,8 +37,62 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # Whether anything but documentation changed. A change to docs/ or to a
+  # Markdown file at the root alone skips the macOS job: it would build the engine for
+  # an hour to test text. The job is skipped, not left out with a paths
+  # filter on the trigger: main's protection asks for "macOS tests and
+  # lints", a skipped job reports success, and a job that never starts
+  # would hold a documentation pull request open for good. The READMEs
+  # count as code: locales.py checks there is one per language, and a
+  # Markdown file under src/ can be compiled in (include_str!). A release, a
+  # run by hand, or a list of files GitHub cuts short tests everything.
+  changes:
+    name: What changed
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      code: ${{ steps.files.outputs.code }}
+    steps:
+      - id: files
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+          PR: ${{ github.event.pull_request.number }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+          REF: ${{ inputs.ref }}
+        run: |
+          set -euo pipefail
+          if [ -n "$REF" ]; then
+            files=""
+          elif [ "$EVENT" = pull_request ]; then
+            files=$(gh api --paginate "repos/$REPO/pulls/$PR/files" --jq '.[].filename')
+            # GitHub lists 3000 files at most.
+            [ "$(printf '%s\n' "$files" | wc -l)" -ge 3000 ] && files=""
+          elif [ "$EVENT" = push ] && [ -n "$BEFORE" ] && [ "${BEFORE//0/}" != "" ]; then
+            files=$(gh api "repos/$REPO/compare/$BEFORE...$AFTER" --jq '.files[].filename') || files=""
+            # A comparison lists 300 files at most.
+            [ "$(printf '%s\n' "$files" | wc -l)" -ge 300 ] && files=""
+          else
+            files=""
+          fi
+          code=true
+          if [ -n "$files" ] && ! printf '%s\n' "$files" | awk '
+                /(^|\/)README[^\/]*\.md$/ || !/^(docs\/|[^\/]+\.md$)/ { found = 1 }
+                END { exit !found }'; then
+            code=false
+          fi
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          printf 'Changed files:\n%s\nTest the engine: %s\n' "${files:-(all)}" "$code"
+
   macos:
     name: macOS tests and lints
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     # Apple silicon: GitHub's arm64 runners are the quicker and the more
     # available. The Intel build is made and checked by build-app.yml on a
     # release tag. No GPU tests are forced here (CONCAT_REQUIRE_GPU is not
