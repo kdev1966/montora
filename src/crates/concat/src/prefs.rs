@@ -90,6 +90,9 @@ pub struct Preferences {
     /// unless the Settings sheet was asked for more or less. CONCAT_LOG in
     /// the environment overrides it for one run.
     pub log_level: Option<String>,
+    /// The GPU to run on, by the name gpu.rs reads: "auto" (or absent),
+    /// "integrated" or "discrete". Applied at the next launch.
+    pub gpu: Option<String>,
     /// Settings > AI: the provider the AI features run on and the model
     /// chosen on it. The keys are not here; see montora_ai::secrets.
     #[serde(default)]

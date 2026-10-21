@@ -57,6 +57,10 @@ export struct SettingsData {
     log-level: int,
     /// the playhead stops at the end of the content
     playhead-stops: bool,
+    /// the GPU choice: 0 automatic, 1 integrated, 2 discrete; and the GPU
+    /// this run is on
+    gpu: int,
+    gpu-now: string,
     /// the magnetic timeline: deleting and trimming close the gap
     magnetic: bool,
     /// where model downloads look first: automatic, Concat's mirror,
@@ -477,6 +481,7 @@ export component SettingsDialog inherits Modal {
     /// follows the display's own.
     callback scale-changed(index: int);
     callback playhead-stops-changed(on: bool);
+    callback gpu-changed(index: int);
     callback magnetic-changed(on: bool);
     callback download-source-changed(index: int);
     callback download-base-edited(text: string);
@@ -719,6 +724,24 @@ export component SettingsDialog inherits Modal {
                         ];
                         current: root.data.log-level;
                         changed(index) => { root.log-level-changed(index); }
+                    }
+                }
+
+                // Which GPU to draw on, for a machine with two: the choice
+                // is read before the window opens, so it applies at the next
+                // launch. A phone has one GPU.
+                if !root.phone: DialogSection {
+                    title: I18n.t("settings.gpu");
+                    hint: I18n.t1("settings.gpuHint", root.data.gpu-now);
+
+                    Select {
+                        options: [
+                            I18n.t("settings.gpuAutomatic"),
+                            I18n.t("settings.gpuIntegrated"),
+                            I18n.t("settings.gpuDiscrete"),
+                        ];
+                        current: root.data.gpu;
+                        changed(index) => { root.gpu-changed(index); }
                     }
                 }
 

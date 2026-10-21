@@ -537,6 +537,20 @@ struct Presentable {
 /// drawn, and one so a late frame never waits on either.
 const PRESENT_RING: usize = 3;
 
+/// Which GPU to ask for: the most powerful, unless `MONTORA_GPU=integrated`
+/// asks for the machine's integrated one. On a Mac with two GPUs the
+/// discrete one is not always the one that holds up: a 2015 MacBook Pro's
+/// Radeon R9 M370X stalled on the effect cards' shaders under macOS 12
+/// until the kernel restarted it, taking the session down with it. This
+/// lets such a machine run on its other GPU. Read in both places an
+/// adapter is chosen: here and in the window's gpu.rs.
+pub fn power_preference() -> wgpu::PowerPreference {
+    match std::env::var("MONTORA_GPU").as_deref().map(str::trim) {
+        Ok("integrated" | "low-power") => wgpu::PowerPreference::LowPower,
+        _ => wgpu::PowerPreference::HighPerformance,
+    }
+}
+
 /// The limits the compositor asks its device for, given the adapter's:
 /// WebGPU's defaults wherever the adapter meets them, the adapter's own
 /// wherever it does not, and the adapter's texture sizes whatever they
@@ -738,6 +752,14 @@ impl WgpuCompositor {
     fn on_backends(backends: wgpu::Backends, software_only: bool) -> Option<Self> {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends,
+            // Without wgpu's validation of indirect calls: it compiles a
+            // compute shader of its own the moment a device opens, and the
+            // Metal compiler of an Intel Iris Pro under macOS 12 fails on it
+            // ("Compiler encountered an internal error"), so no device opened
+            // on that GPU at all. Nothing here draws or dispatches
+            // indirectly, so there is nothing for it to check.
+            flags: wgpu::InstanceFlags::from_build_config()
+                .difference(wgpu::InstanceFlags::VALIDATION_INDIRECT_CALL),
             ..wgpu::InstanceDescriptor::new_without_display_handle()
         });
         let choices: &[bool] = if software_only {
@@ -748,7 +770,7 @@ impl WgpuCompositor {
         choices.iter().copied().find_map(|software| {
             let adapter =
                 match pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
-                    power_preference: wgpu::PowerPreference::HighPerformance,
+                    power_preference: power_preference(),
                     force_fallback_adapter: software,
                     ..Default::default()
                 })) {

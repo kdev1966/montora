@@ -44,6 +44,8 @@ pub enum SettingsMsg {
     /// The log level's row: an index into [`LOG_LEVELS`].
     LogLevelChanged(i32),
     PlayheadStopsChanged(bool),
+    /// The GPU row: an index into `gpu::CHOICES`. Applied at next launch.
+    GpuChanged(i32),
     /// The magnetic timeline switch; the tray's button is the same fact.
     MagneticChanged(bool),
     DownloadSourceChanged(i32),
@@ -300,6 +302,14 @@ impl SettingsPane {
                 // Applied now, whatever the environment said: a person at
                 // the sheet is asking for this run too.
                 concat_host::logs::set_level(*level);
+            }
+            SettingsMsg::GpuChanged(index) => {
+                let Some(choice) = crate::gpu::CHOICES.get(index.max(0) as usize) else {
+                    return;
+                };
+                studio.prefs.gpu = Some((*choice).to_owned());
+                studio.prefs.save(&studio.host.dirs);
+                studio.notify(&t("settings.gpuNextLaunch"), false);
             }
             SettingsMsg::PlayheadStopsChanged(on) => {
                 self.playhead_stops = on;
@@ -825,6 +835,15 @@ impl SettingsPane {
                 .position(|level| *level == log::max_level())
                 .unwrap_or(2) as i32,
             playhead_stops: self.playhead_stops,
+            gpu: studio
+                .prefs
+                .gpu
+                .as_deref()
+                .and_then(|choice| crate::gpu::CHOICES.iter().position(|name| *name == choice))
+                .unwrap_or(0) as i32,
+            gpu_now: crate::gpu::adapter_description()
+                .map_or_else(|| t("settings.gpuNone"), str::to_owned)
+                .into(),
             magnetic: studio.prefs.magnetic,
             download_source: self.download_source as i32,
             download_base: self.download_base.as_str().into(),

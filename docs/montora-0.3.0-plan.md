@@ -4,11 +4,11 @@ Décidé le 21 octobre 2026. Une branche et une PR par étape ; chaque fonction 
 testée dans l'app avant son merge ; la version sort après une pré-version testée sur
 le Mac (macOS 12, Intel).
 
-**macOS d'abord.** La 0.3.0 vise le Mac seul : chaque fonction est faite et testée
-sur macOS, et la version sort en `.dmg` Intel et Apple Silicon. La CI continue de
-compiler et tester Linux, Windows et Android à chaque push, comme filet de sécurité,
-mais un problème propre à ces plateformes n'est corrigé que s'il bloque un merge.
-Android, Windows et Linux sont repris pour la 0.4.
+**macOS d'abord, puis Windows.** La 0.3.0 vise le Mac seul : chaque fonction est faite
+et testée sur macOS, et la version sort en `.dmg` Intel et Apple Silicon. Windows vient
+ensuite (0.4). Linux et Android sont mis de côté pour l'instant : leurs builds (Nix,
+téléphones) ne se lancent plus qu'à la main. La CI garde à chaque PR les tests du moteur
+(sur Linux, le banc d'essai du projet), les tests Windows et la compilation macOS.
 
 ## Phase 1 — Base solide
 
@@ -18,7 +18,7 @@ Android, Windows et Linux sont repris pour la 0.4.
       `MONTORA_GPU` gardé comme dérogation.
 - [ ] 2. PR `feat/ai-providers` → `main` (#5, en brouillon : IA, Réglages › IA,
       sous-titres en ligne), merge. Les PR Dependabot (#1, #4) attendent la 0.4, sauf
-      mise à jour nécessaire au Mac.
+      mise à jour nécessaire au Mac ou à Windows.
 
 ## Phase 2 — Fonctions
 

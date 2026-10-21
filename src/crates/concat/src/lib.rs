@@ -167,6 +167,13 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
     // display's own; nothing remembered leaves an inherited
     // SLINT_SCALE_FACTOR alone, so a value set by hand still wins.
     // https://github.com/jub0t/Concat/issues/320
+    // The GPU choice too, before any adapter is opened; see gpu.rs.
+    #[cfg(not(target_os = "android"))]
+    if let Ok(dirs) = concat_host::AppDirs::locate() {
+        let choice = prefs::Preferences::load(&dirs).gpu;
+        // SAFETY: single-threaded here, as for the scale below.
+        unsafe { gpu::apply_choice(choice.as_deref()) };
+    }
     if std::env::var_os("SLINT_SCALE_FACTOR").is_none()
         && let Ok(dirs) = concat_host::AppDirs::locate()
         && let Some(percent) = prefs::Preferences::load(&dirs).ui_scale
@@ -1595,6 +1602,9 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
     }));
     app.on_settings_log_level_changed(on_window!(|state, index: i32| {
         state.handle(Msg::Settings(SettingsMsg::LogLevelChanged(index)));
+    }));
+    app.on_settings_gpu_changed(on_window!(|state, index: i32| {
+        state.handle(Msg::Settings(SettingsMsg::GpuChanged(index)));
     }));
     app.on_settings_playhead_stops_changed(on_window!(|state, on: bool| {
         state.handle(Msg::Settings(SettingsMsg::PlayheadStopsChanged(on)));
