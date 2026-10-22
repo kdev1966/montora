@@ -29,6 +29,15 @@ Grâce à Concat, il sait déjà faire :
 - **Une API** JSON-RPC, gRPC et MCP, pour que des scripts et des agents IA puissent monter aussi.
 - **Ni filigrane, ni compte, ni abonnement.** Vos vidéos ne quittent jamais votre disque, sauf si vous choisissez un fournisseur d'IA en ligne.
 
+## Montora et Concat
+
+Montora est parti du moteur de Concat, dont il garde l'historique et les auteurs. Depuis la séparation, c'est un projet à part entière, avec sa propre direction :
+
+- **L'IA là où vous la choisissez.** Des modèles locaux, ou le fournisseur de votre choix (Groq, OpenCode Zen, xAI, OpenAI, ou toute adresse compatible OpenAI comme Ollama) avec votre propre clé, rangée dans le trousseau du système. Les sous-titres viennent de Whisper sur votre machine ou de Groq en quelques secondes, avec l'heure de chaque mot.
+- **La solidité d'abord, une plateforme à la fois.** macOS en premier, testé sur d'anciens Mac Intel comme sur les récents, puis Windows. Une plateforme sort quand elle tient, pas avant.
+- **Le Brain.** Un orchestrateur de montage qui s'adapte à la machine (il choisit des outils plus légers ou plus lourds selon ce que votre ordinateur peut porter) et à la personne (il apprend vos habitudes et votre niveau). Le modèle propose, le code décide, et rien ne change dans votre projet sans votre accord. Voir [brain.md](brain.md).
+- **Ce que Concat fait bien est repris, pas réécrit.** Les correctifs et fonctions que Concat a déjà sont rapportés un par un, avec leurs auteurs.
+
 ## Où il va
 
 1. **Des fournisseurs d'IA au choix.** D'abord les modèles locaux. Ensuite, en option, Ollama ou LM Studio, n'importe quelle API compatible OpenAI (OpenAI, Mistral, Groq, OpenRouter…) ou Anthropic. Vous apportez votre propre clé et choisissez votre budget.
@@ -39,7 +48,7 @@ Grâce à Concat, il sait déjà faire :
 
 ## Plateformes
 
-Windows, macOS (Apple silicon et Intel), Linux et Android. Les versions seront publiées sur [GitHub Releases](https://github.com/kdev1966/montora/releases).
+macOS d'abord (Apple silicon et Intel, macOS 12 ou plus récent), puis Windows. Linux et Android viendront plus tard. Les versions seront publiées sur [GitHub Releases](https://github.com/kdev1966/montora/releases).
 
 Montora est distribué hors des magasins d'applications. Sur macOS, ouvrez-le la première fois avec clic droit › **Ouvrir**. Sur un Mac Intel, le détourage, l'amélioration d'image et la voix Chatterbox demandent macOS 13.3 ou plus récent.
 

@@ -1,12 +1,15 @@
-# Dependabot keeps two kinds of pin current, weekly, as pull requests that
-# CI tests like any other:
+# Dependabot keeps two kinds of pin current, monthly, as pull requests that
+# CI tests like any other. Monthly, and never rebased on its own: each of
+# its pull requests runs the hour-long macOS job, and while Montora is
+# being made solid on macOS the bumps are taken in one batch, when chosen
+# ("@dependabot rebase" brings one up to date). Security updates still come
+# on their own, as they are found.
 #
 # - The actions every workflow uses, each pinned to a commit with its tag
 #   in a comment. Dependabot moves the commit and the comment together.
 # - The Rust dependencies in src/Cargo.lock, grouped into one pull request
-#   a week (security updates still come on their own, as they are found),
-#   so a week's bumps are reviewed and tested once rather than twenty
-#   times.
+#   a month, so a month's bumps are reviewed and tested once rather than
+#   twenty times.
 #
 # Not covered: the prebuilt libraries in scripts/ci/deps.lock (FFmpeg,
 # ONNX Runtime, sherpa-onnx, the packagers, LLVM, Intel's emulator), which
@@ -17,7 +20,8 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
+    rebase-strategy: disabled
     groups:
       actions:
         patterns: ["*"]
@@ -27,7 +31,8 @@ updates:
   - package-ecosystem: cargo
     directory: /src
     schedule:
-      interval: weekly
+      interval: monthly
+    rebase-strategy: disabled
     open-pull-requests-limit: 5
     groups:
       cargo:

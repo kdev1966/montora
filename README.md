@@ -29,6 +29,15 @@ From Concat it already has:
 - **An API** over JSON-RPC, gRPC and MCP, so scripts and AI agents can edit too.
 - **No watermark, no account, no subscription.** Your footage never leaves your disk unless you choose a cloud AI provider.
 
+## Montora and Concat
+
+Montora started from Concat's engine and keeps its history and its authors. Since the fork it is its own project, with its own direction:
+
+- **AI where you choose.** Local models, or a provider you pick (Groq, OpenCode Zen, xAI, OpenAI, or any OpenAI-compatible address such as Ollama) with your own key, kept in the system keychain. Captions can come from Whisper on your machine or from Groq in seconds, with a time for every word.
+- **Solid first, one platform at a time.** macOS first, tested on old Intel Macs as well as new ones, then Windows. A platform ships when it holds up, not before.
+- **The Brain.** An editing orchestrator that adapts to the machine (it picks lighter or heavier tools from what your computer can carry) and to the person (it learns your habits and your level). The model proposes, the code decides, and nothing changes in your project without your approval. See [docs/brain.md](docs/brain.md) (in French).
+- **Good work from Concat is taken, not rewritten.** Fixes and features that Concat already has are brought over one by one, with their authors kept.
+
 ## Where it is going
 
 1. **AI providers, your choice.** Local models first. Then optionally Ollama or LM Studio, any OpenAI-compatible API (OpenAI, Mistral, Groq, OpenRouter…) or Anthropic. You bring your own key and choose your own budget.
@@ -39,7 +48,7 @@ From Concat it already has:
 
 ## Platforms
 
-Windows, macOS (Apple silicon and Intel), Linux and Android. Releases will be published on [GitHub Releases](https://github.com/kdev1966/montora/releases).
+macOS first (Apple silicon and Intel, macOS 12 or later), then Windows. Linux and Android come later. Releases will be published on [GitHub Releases](https://github.com/kdev1966/montora/releases).
 
 Montora is distributed outside the app stores. On macOS, open it the first time with right-click › **Open**. On an Intel Mac, background removal, image enhancement and the Chatterbox voice need macOS 13.3 or later.
 
