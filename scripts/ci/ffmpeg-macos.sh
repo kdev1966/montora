@@ -100,7 +100,9 @@ ninja -C "$src/build" install
 echo "::endgroup::"
 
 # --disable-autodetect: nothing is picked up because the runner happens to
-# have it (Homebrew's xz, X11, SDL...). What is wanted is named.
+# have it (Homebrew's xz, X11, SDL...). What is wanted is named. iconv, for
+# subtitles in other encodings, is the system's libiconv, which nothing
+# links by name once detection is off: named here too.
 echo "::group::FFmpeg"
 src=$(source_of ffmpeg)
 (cd "$src" && ./configure --prefix="$prefix" \
@@ -110,7 +112,7 @@ src=$(source_of ffmpeg)
   --enable-zlib --enable-bzlib --enable-iconv \
   --enable-videotoolbox --enable-audiotoolbox \
   --enable-libdav1d --enable-libx264 --enable-libx265 --enable-libsvtav1 \
-  --pkg-config-flags=--static \
+  --pkg-config-flags=--static --extra-libs=-liconv \
   --extra-cflags="$CFLAGS" --extra-cxxflags="$CXXFLAGS" --extra-ldflags="$LDFLAGS" \
   && make -j"$jobs" && make install)
 echo "::endgroup::"
