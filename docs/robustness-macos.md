@@ -7,7 +7,8 @@ Chaque correction se fait sur sa branche, avec un test qui reproduit le problèm
 
 ## À corriger en priorité
 
-- [ ] **Deux enregistrements partagent un fichier temporaire** (audit n° 6). ⌘S deux fois,
+- [x] **Deux enregistrements partagent un fichier temporaire** (audit n° 6). Repris de Concat
+      (e75af9b, 9197340) : PR « fix/concurrent-saves ». ⌘S deux fois,
       ou un enregistrement pendant la sauvegarde automatique ou la fermeture, peut laisser
       un projet qui ne se rouvre plus. Perte de données. `concat-host/src/projects.rs:174`.
 - [ ] **Carte AMD qui bloque le GPU** (Montora). Les vignettes d'effets bloquaient la
