@@ -1,0 +1,68 @@
+name: Rust on macOS
+description: >
+  What every macOS job in ci.yml needs before it builds the workspace: the
+  pinned toolchain, Homebrew's FFmpeg and cmake, sherpa-onnx's prebuilt
+  library, and the Rust cache. Runs after actions/checkout.
+
+inputs:
+  nextest:
+    description: Install cargo-nextest too
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    # The toolchain src/rust-toolchain.toml pins, installed by name.
+    - name: The pinned toolchain
+      id: toolchain
+      shell: bash
+      run: echo "channel=$(sed -n 's/^channel = "\(.*\)"/\1/p' src/rust-toolchain.toml)" >> "$GITHUB_OUTPUT"
+    - uses: dtolnay/rust-toolchain@e2a55d2ffb04f378e9626c28d38b36d230d1e12f # master (v1), 2026-10-09
+      with:
+        toolchain: ${{ steps.toolchain.outputs.channel }}
+        components: clippy, rustfmt
+    # cargo-nextest runs the tests: each in a process of its own, with a
+    # timeout per test and a JUnit report. See src/.config/nextest.toml.
+    - if: inputs.nextest == 'true'
+      uses: taiki-e/install-action@ab6895351a88b908e96a4697860d4ffea5e57dbe # v2.87.27
+      with:
+        tool: cargo-nextest@0.9.148
+    - name: FFmpeg and cmake
+      shell: bash
+      run: |
+        set -euo pipefail
+        brew install ffmpeg cmake
+        echo "FFMPEG_DIR=$(brew --prefix ffmpeg)" >> "$GITHUB_ENV"
+    # The prebuilt sherpa-onnx library, fetched here rather than left to
+    # its build script, which unpacks it into target/, where rust-cache
+    # does not keep it. The version is the lockfile's, and deps.lock must
+    # pin that version's file.
+    - name: sherpa-onnx libraries
+      shell: bash
+      run: |
+        set -euo pipefail
+        version=$(grep -A1 'name = "sherpa-onnx-sys"' src/Cargo.lock | sed -n 's/^version = "\(.*\)"/\1/p')
+        name=sherpa-onnx-osx-arm64-static-lib
+        case "$(scripts/ci/fetch.sh --url "$name")" in
+          */v"$version"/*) ;;
+          *) echo "scripts/ci/deps.lock pins $name for another version than Cargo.lock's $version" >&2; exit 1 ;;
+        esac
+        stem="sherpa-onnx-v$version-osx-arm64-static-lib"
+        scripts/ci/fetch.sh "$name" sherpa.tar.bz2
+        mkdir -p sherpa
+        tar -xjf sherpa.tar.bz2 -C sherpa
+        test -d "sherpa/$stem/lib"
+        echo "SHERPA_ONNX_LIB_DIR=$PWD/sherpa/$stem/lib" >> "$GITHUB_ENV"
+    # Saved by main only. GitHub keeps 10 GB of caches per repository and
+    # each of these is about 1 GB: saved by every pull request as well,
+    # they pushed main's out, and every new pull request then compiled
+    # from nothing. A pull request restores main's and keeps nothing.
+    # The workspace's own crates are kept too, so a change to one crate
+    # does not rebuild the fifteen others. Saved even when the job fails:
+    # a cache saved only by a green run is never saved while main is red.
+    - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      with:
+        workspaces: src
+        cache-on-failure: true
+        cache-workspace-crates: true
+        save-if: ${{ github.ref == 'refs/heads/main' }}
