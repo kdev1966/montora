@@ -42,6 +42,7 @@ pub(super) fn apply(
                 placeholder: false,
                 color_range: None,
                 color_space: item.color_space,
+                transcripts: Vec::new(),
                 extra: Default::default(),
             });
             Ok(Outcome {
@@ -91,6 +92,8 @@ pub(super) fn apply(
             media.audio_tracks = item.audio_tracks;
             media.color_space = item.color_space;
             media.placeholder = false;
+            // What was heard was the template's footage, not this file's.
+            media.transcripts.clear();
             let kind = match item.kind {
                 MediaKind::Video => ClipKind::Video,
                 MediaKind::Audio => ClipKind::Audio,
@@ -187,6 +190,63 @@ pub(super) fn apply(
                 .iter_mut()
                 .find(|item| item.id == media_id)
                 .is_some_and(|item| assign(&mut item.color_range, range));
+            Ok(Outcome {
+                created_id: None,
+                applied,
+            })
+        }
+
+        Command::SetTranscript {
+            media_id,
+            transcript,
+        } => {
+            let heard = transcript.tidy();
+            let Some(item) = project.media.iter_mut().find(|item| item.id == media_id) else {
+                return Ok(Outcome::default());
+            };
+            if heard.is_empty() {
+                return Ok(Outcome::default());
+            }
+            let stream = heard.audio_stream;
+            let merged = match item.transcript(stream) {
+                Some(known) => known.merged(&heard),
+                None => heard,
+            };
+            let applied = match item
+                .transcripts
+                .iter_mut()
+                .find(|known| known.audio_stream == stream)
+            {
+                Some(known) if **known == merged => false,
+                Some(known) => {
+                    *known = Arc::new(merged);
+                    true
+                }
+                None => {
+                    item.transcripts.push(Arc::new(merged));
+                    true
+                }
+            };
+            Ok(Outcome {
+                created_id: None,
+                applied,
+            })
+        }
+
+        Command::ClearTranscript {
+            media_id,
+            audio_stream,
+        } => {
+            let applied = project
+                .media
+                .iter_mut()
+                .find(|item| item.id == media_id)
+                .is_some_and(|item| {
+                    let before = item.transcripts.len();
+                    item.transcripts
+                        .retain(|transcript| transcript.audio_stream != audio_stream);
+                    item.transcripts.len() != before
+                });
             Ok(Outcome {
                 created_id: None,
                 applied,

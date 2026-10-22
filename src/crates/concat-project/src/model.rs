@@ -101,6 +101,143 @@ pub struct AudioTrack {
     pub language: String,
 }
 
+/// What was said in a media file's sound, kept with the file so every clip
+/// of it shares one transcript and nothing is heard twice. Times are
+/// seconds of the file itself, not of a timeline: a clip moved, trimmed or
+/// sped up still finds its words by its in-point.
+///
+/// A transcript grows a stretch at a time - one clip's window per run - so
+/// it says which stretches it covers (`spans`); a stretch heard again
+/// replaces what was heard there before. Built by
+/// `Command::SetTranscript`, emptied by `Command::ClearTranscript`.
+#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct Transcript {
+    /// The audio stream it was heard in, as [`Clip::audio_stream`] names
+    /// it; None for the file's default stream.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub audio_stream: Option<u32>,
+    /// The language heard, as the transcriber named it ("fr", "french");
+    /// empty when it did not say.
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub language: String,
+    /// What heard it, e.g. "whisper:base" or
+    /// "groq:whisper-large-v3-turbo": the last run's, when runs differ.
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub source: String,
+    /// The stretches of the file that were heard, `[start, end]` in
+    /// seconds, in order and not overlapping. Silence inside one is
+    /// silence, not a gap in the transcript.
+    #[serde(deserialize_with = "wire::list")]
+    pub spans: Vec<[f64; 2]>,
+    /// Phrases, in order of their start.
+    #[serde(deserialize_with = "wire::list")]
+    pub segments: Vec<TranscriptSegment>,
+    /// Single words with their own times, in order of their start, when
+    /// the transcriber gave them; empty otherwise.
+    #[serde(skip_serializing_if = "Vec::is_empty", deserialize_with = "wire::list")]
+    pub words: Vec<TranscriptWord>,
+}
+
+/// A phrase of a [`Transcript`]: seconds of the file, and what was said.
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TranscriptSegment {
+    /// Where it starts, in seconds of the file.
+    pub start: f64,
+    /// Where it ends, in seconds of the file.
+    pub end: f64,
+    /// What was said.
+    pub text: String,
+}
+
+/// A word of a [`Transcript`], with its own times.
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TranscriptWord {
+    /// Where it starts, in seconds of the file.
+    pub start: f64,
+    /// Where it ends, in seconds of the file.
+    pub end: f64,
+    /// The word as heard, with its punctuation.
+    pub text: String,
+    /// How sure the transcriber was, 0 to 1, when it said.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub confidence: Option<f32>,
+}
+
+impl Transcript {
+    /// The transcript with every entry a reader or a command can trust:
+    /// finite, non-negative times that do not run backwards, a confidence
+    /// within 0 to 1, spans merged where they touch, everything in order.
+    /// Anything else is dropped rather than refused, the way the document
+    /// reader drops what it cannot use.
+    pub fn tidy(mut self) -> Transcript {
+        let sane = |start: f64, end: f64| {
+            start.is_finite() && end.is_finite() && 0.0 <= start && start <= end
+        };
+        self.spans.retain(|[start, end]| sane(*start, *end));
+        self.spans.sort_by(|a, b| a[0].total_cmp(&b[0]));
+        let mut spans: Vec<[f64; 2]> = Vec::with_capacity(self.spans.len());
+        for span in self.spans {
+            match spans.last_mut() {
+                Some(last) if span[0] <= last[1] => last[1] = last[1].max(span[1]),
+                _ => spans.push(span),
+            }
+        }
+        self.spans = spans;
+        self.segments
+            .retain(|segment| sane(segment.start, segment.end));
+        self.segments.sort_by(|a, b| a.start.total_cmp(&b.start));
+        self.words.retain(|word| sane(word.start, word.end));
+        for word in &mut self.words {
+            word.confidence = word
+                .confidence
+                .filter(|confidence| confidence.is_finite())
+                .map(|confidence| confidence.clamp(0.0, 1.0));
+        }
+        self.words.sort_by(|a, b| a.start.total_cmp(&b.start));
+        self
+    }
+
+    /// Whether a phrase or word from `start` to `end` belongs to `spans`:
+    /// its middle falls inside one of them.
+    fn within(spans: &[[f64; 2]], start: f64, end: f64) -> bool {
+        let middle = (start + end) / 2.0;
+        spans
+            .iter()
+            .any(|[from, to]| *from <= middle && middle <= *to)
+    }
+
+    /// This transcript with `heard` laid over it: what `heard` covers is
+    /// replaced by what it says, the rest is kept, and the spans are the
+    /// union. Its language and source become `heard`'s where it names them.
+    pub fn merged(&self, heard: &Transcript) -> Transcript {
+        let mut merged = self.clone();
+        merged
+            .segments
+            .retain(|segment| !Self::within(&heard.spans, segment.start, segment.end));
+        merged
+            .words
+            .retain(|word| !Self::within(&heard.spans, word.start, word.end));
+        merged.segments.extend(heard.segments.iter().cloned());
+        merged.words.extend(heard.words.iter().cloned());
+        merged.spans.extend(heard.spans.iter().copied());
+        if !heard.language.is_empty() {
+            merged.language = heard.language.clone();
+        }
+        if !heard.source.is_empty() {
+            merged.source = heard.source.clone();
+        }
+        merged.tidy()
+    }
+
+    /// Whether nothing was heard: no stretch, no phrase, no word.
+    pub fn is_empty(&self) -> bool {
+        self.spans.is_empty() && self.segments.is_empty() && self.words.is_empty()
+    }
+}
+
 /// The levels a media file's picture spans, when the person says so over
 /// whatever the file claims: video range, 16-235, or full range, 0-255.
 /// A screen recording written full and tagged nothing plays grey where it
@@ -186,6 +323,13 @@ pub struct MediaItem {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(deserialize_with = "wire::maybe")]
     pub origin: Option<MediaOrigin>,
+    /// What was said in the file's sound, one transcript per audio stream
+    /// that was heard; see [`Transcript`]. Behind `Arc`, so an undo step
+    /// copies a pointer and not an hour of words. Skipped when empty, so
+    /// documents that never transcribed stay byte-identical.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(deserialize_with = "wire::list")]
+    pub transcripts: Vec<Arc<Transcript>>,
     /// Fields this build does not know, kept so a document written by a
     /// newer or a different build round-trips through this one intact.
     #[serde(flatten, default, skip_serializing_if = "Map::is_empty")]
@@ -2089,12 +2233,27 @@ impl Project {
 }
 
 impl MediaItem {
-    /// A nameless entry is called by its path.
+    /// A nameless entry is called by its path; a transcript keeps only
+    /// what can be trusted, and one with nothing left is dropped.
     pub fn tidy(mut self) -> MediaItem {
         if self.name.is_empty() {
             self.name = self.path.clone();
         }
+        self.transcripts = std::mem::take(&mut self.transcripts)
+            .into_iter()
+            .map(|transcript| Arc::unwrap_or_clone(transcript).tidy())
+            .filter(|transcript| !transcript.is_empty())
+            .map(Arc::new)
+            .collect();
         self
+    }
+
+    /// The transcript of `stream`'s sound, when it was heard.
+    pub fn transcript(&self, stream: Option<u32>) -> Option<&Transcript> {
+        self.transcripts
+            .iter()
+            .find(|transcript| transcript.audio_stream == stream)
+            .map(Arc::as_ref)
     }
 
     /// Which row of `audio_tracks` a clip's `audio_stream` is: the named

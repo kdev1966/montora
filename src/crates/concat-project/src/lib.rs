@@ -2608,6 +2608,159 @@ mod tests {
         assert_eq!(untouched.transition_in, None);
     }
 
+    /// What was heard in a media file is kept with it: saved and read back,
+    /// a stretch heard again replaces only that stretch, entries that
+    /// cannot be trusted are dropped, and it is set, cleared and undone
+    /// like any edit.
+    #[test]
+    fn a_transcript_is_kept_with_its_media_and_grows_a_stretch_at_a_time() {
+        use crate::model::{Transcript, TranscriptSegment, TranscriptWord};
+        let segment = |start: f64, end: f64, text: &str| TranscriptSegment {
+            start,
+            end,
+            text: text.to_owned(),
+        };
+        let word = |start: f64, end: f64, text: &str| TranscriptWord {
+            start,
+            end,
+            text: text.to_owned(),
+            confidence: Some(0.9),
+        };
+        let (mut editor, media_id, _clip_id) = fixture();
+        assert!(editor.project().media[0].transcripts.is_empty());
+        let untold = editor.to_document(&settings());
+        assert!(
+            untold["media"][0].get("transcripts").is_none(),
+            "a project that never transcribed stays byte-identical"
+        );
+
+        let first = Transcript {
+            audio_stream: None,
+            language: "fr".to_owned(),
+            source: "whisper:base".to_owned(),
+            spans: vec![[0.0, 10.0]],
+            segments: vec![
+                segment(5.0, 9.0, "la perle du sud"),
+                segment(0.5, 4.0, "Tozeur"),
+            ],
+            words: vec![word(0.5, 1.2, "Tozeur"), word(5.0, 5.4, "la")],
+        };
+        let view = editor
+            .apply(Command::SetTranscript {
+                media_id: media_id.clone(),
+                transcript: first,
+            })
+            .expect("sets");
+        assert!(view.applied);
+        let kept = editor.project().media[0]
+            .transcript(None)
+            .expect("kept")
+            .clone();
+        assert_eq!(kept.segments[0].text, "Tozeur", "phrases are kept in order");
+        assert_eq!(kept.words.len(), 2);
+
+        // Saved, read back, the same.
+        let saved = editor.to_document(&settings());
+        assert_eq!(saved["media"][0]["transcripts"][0]["language"], "fr");
+        assert_eq!(
+            saved["media"][0]["transcripts"][0]["spans"],
+            json!([[0.0, 10.0]])
+        );
+        let reopened = Editor::from_document(&saved).expect("loads");
+        assert_eq!(reopened.project().media[0].transcript(None), Some(&kept));
+
+        // The second half of the stretch heard again, with a run from
+        // further on: what was said from 5 s is replaced, the start is
+        // kept, the spans join, and the source is the last run's.
+        let again = Transcript {
+            source: "groq:whisper-large-v3-turbo".to_owned(),
+            spans: vec![[5.0, 20.0]],
+            segments: vec![segment(5.0, 8.0, "la perle"), segment(12.0, 15.0, "du sud")],
+            ..Transcript::default()
+        };
+        editor
+            .apply(Command::SetTranscript {
+                media_id: media_id.clone(),
+                transcript: again,
+            })
+            .expect("merges");
+        let merged = editor.project().media[0].transcript(None).expect("kept");
+        assert_eq!(merged.spans, vec![[0.0, 20.0]]);
+        let texts: Vec<&str> = merged.segments.iter().map(|s| s.text.as_str()).collect();
+        assert_eq!(texts, ["Tozeur", "la perle", "du sud"]);
+        assert_eq!(merged.words.len(), 1, "the word heard again at 5 s is gone");
+        assert_eq!(
+            merged.language, "fr",
+            "a run that names no language keeps it"
+        );
+        assert_eq!(merged.source, "groq:whisper-large-v3-turbo");
+
+        // Untrustworthy entries are dropped; nothing left is a no-op, as is
+        // an unknown item.
+        let junk = Transcript {
+            spans: vec![[f64::NAN, 3.0], [4.0, 2.0]],
+            segments: vec![segment(-1.0, 2.0, "avant le début")],
+            ..Transcript::default()
+        };
+        let none = editor
+            .apply(Command::SetTranscript {
+                media_id: media_id.clone(),
+                transcript: junk,
+            })
+            .expect("no-op");
+        assert!(!none.applied);
+        let gone = editor
+            .apply(Command::SetTranscript {
+                media_id: "m999".to_owned(),
+                transcript: Transcript {
+                    spans: vec![[0.0, 1.0]],
+                    ..Transcript::default()
+                },
+            })
+            .expect("an unknown item is a no-op");
+        assert!(!gone.applied);
+
+        // A document with a broken entry still opens, without it.
+        let mut odd = editor.to_document(&settings());
+        odd["media"][0]["transcripts"][0]["segments"]
+            .as_array_mut()
+            .expect("a list")
+            .push(json!({"start": "soon", "text": "?"}));
+        let tolerant = Editor::from_document(&odd).expect("loads");
+        assert_eq!(
+            tolerant.project().media[0]
+                .transcript(None)
+                .map(|t| t.segments.len()),
+            Some(3)
+        );
+
+        // Cleared, then undone, then the API's spelling.
+        editor
+            .apply(Command::ClearTranscript {
+                media_id: media_id.clone(),
+                audio_stream: None,
+            })
+            .expect("clears");
+        assert!(editor.project().media[0].transcripts.is_empty());
+        editor.undo();
+        assert_eq!(
+            editor.project().media[0]
+                .transcript(None)
+                .map(|t| t.spans.clone()),
+            Some(vec![[0.0, 20.0]])
+        );
+        let parsed: Command = serde_json::from_value(json!({
+            "op": "setTranscript",
+            "mediaId": "m1",
+            "transcript": {"audioStream": 1, "spans": [[0.0, 2.0]], "segments": [{"start": 0.0, "end": 2.0, "text": "salut"}]}
+        }))
+        .expect("parses");
+        assert!(matches!(
+            parsed,
+            Command::SetTranscript { ref transcript, .. } if transcript.audio_stream == Some(1)
+        ));
+    }
+
     /// A media item's colour range is set, saved, cleared, and undone
     /// like any edit; an unknown item is a no-op that records nothing.
     /// https://github.com/jub0t/Concat/issues/103
@@ -4009,6 +4162,7 @@ mod tests {
             color_range: None,
             color_space: Default::default(),
             origin: None,
+            transcripts: Vec::new(),
             extra: Default::default(),
         });
 
@@ -4048,6 +4202,7 @@ mod tests {
             color_range: None,
             color_space: Default::default(),
             origin: None,
+            transcripts: Vec::new(),
             extra: Default::default(),
         });
 
