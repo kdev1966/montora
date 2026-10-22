@@ -144,3 +144,43 @@ De nouvelles compétences s'ajouteront au fil des fonctionnalités, sans toucher
   valider, compétence Contrôle, habitudes de base, niveau choisi au premier lancement.
 - **Ensuite** : ajustement automatique du niveau, confiance mesurée dans le modèle, nouvelles
   compétences (cadrage, génération, plateformes).
+
+## Inspirations
+
+Idées reprises d'autres projets, comme modèles de conception (pas de code).
+
+### open-duet (Anil-matcha/open-duet, Apache-2.0, revu le 22 octobre 2026)
+
+Une couche de contrôle autour d'agents IA externes. Contraire à notre doctrine sur un point
+essentiel : chez lui, l'agent IA décide et planifie, open-duet ne fait que filtrer ses actions.
+Cinq idées valent d'être reprises :
+
+1. **La carte de proposition et son cycle de vie.** Chaque proposition est enregistrée avec son
+   contenu complet et un état : en attente, acceptée, refusée, expirée, annulée. Un délai dépassé
+   compte comme un refus, et tout est revérifié juste avant d'appliquer (le projet n'a pas
+   changé entre-temps). C'est notre étape « montrer le plan → appliquer ».
+   Source : `backend/app/db/models/approval.py`, `thread_runtime.py` (ThreadApprovalGate).
+2. **Le journal des décisions.** Un fichier en ajout seul (une ligne JSON par décision) qui note
+   l'événement, **qui a décidé** (toi, une habitude, une règle, le modèle), **en vertu de quelle
+   règle**, le mode, un résumé sans secret, et une durée de conservation. Ses champs « qui » et
+   « règle » portent directement notre ordre d'arbitrage, et rendent le Brain explicable
+   (« coupé parce que tu coupes toujours les silences de plus d'une seconde »).
+   Source : `decision_log.py`.
+3. **Des habitudes proposées sans IA.** Des règles fixes repèrent une habitude possible et la
+   proposent ; une habitude refusée n'est plus jamais reproposée ; chaque changement de la
+   mémoire est journalisé et peut être annulé ; le journal est hors de portée de ce qui le
+   remplit. C'est le « H comme Human » appliqué sans risque.
+   Source : `memory_proposals.py`, `memory_journal.py`.
+4. **Une liste noire au-dessus de tout.** Elle l'emporte sur les règles enregistrées, et ce qui
+   ne peut pas être analysé attend la décision de l'utilisateur. Pour Montora : ne jamais
+   supprimer un rush, ne jamais écraser un export ou un projet sans demander, ne jamais envoyer
+   un fichier à un service en ligne sans accord.
+   Source : `safety_floor.py`.
+5. **Des compétences qui déclarent leurs capacités**, avec un test de disponibilité, et qui ne
+   peuvent jamais élargir leurs droits à l'import. Rejoint le manifeste des compétences et le
+   « H comme Hardware » : la compétence dit ce dont elle a besoin, le Brain vérifie si la machine
+   le permet.
+   Source : `provider_adapter.py` (Capabilities, probe), `agent_package.py`.
+
+À ne pas reprendre : l'agent IA qui décide, les lectures et modifications autorisées sans
+demander, l'absence de plafond de dépenses.
