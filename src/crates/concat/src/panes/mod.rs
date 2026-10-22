@@ -104,10 +104,15 @@ pub fn activity(msg: &Msg) -> Option<Activity> {
         Msg::Captions(CaptionsMsg::Begin) => {
             return Some(Activity::once(Info, "captions: started".to_owned()));
         }
-        Msg::Captions(CaptionsMsg::Finished(Ok(segments))) => {
+        Msg::Captions(CaptionsMsg::Finished(Ok(heard))) => {
             return Some(Activity::once(
                 Info,
-                format!("captions: finished, {} segments", segments.len()),
+                format!(
+                    "captions: finished, {} lines, {} phrases, {} words",
+                    heard.lines.len(),
+                    heard.segments.len(),
+                    heard.words.len()
+                ),
             ));
         }
         Msg::Captions(CaptionsMsg::Finished(Err(error))) => {

@@ -15,7 +15,8 @@ use serde::{Deserialize, Serialize};
 use crate::model::{
     AppliedFilter, AudioTrack, Clip, ClipKind, ColorRange, ColorSpace, Crop, CustomFont, Cutout,
     CutoutMode, Enhanced, KeyEase, KeyProperty, MediaItem, MediaKind, MediaOrigin, Project,
-    ShapeStyle, SpeedPoint, Stroke, TextStyle, Timeline, Track, Transition, VideoSettings,
+    ShapeStyle, SpeedPoint, Stroke, TextStyle, Timeline, Track, Transcript, Transition,
+    VideoSettings,
 };
 
 mod audio;
@@ -725,6 +726,27 @@ pub enum Command {
         /// own tag.
         range: Option<ColorRange>,
     },
+    /// Keeps what was heard in a stretch of a media file's sound: the
+    /// transcript of its stream gains `transcript`'s spans, and what was
+    /// heard there before is replaced. Entries that cannot be trusted
+    /// (times not finite, negative or backwards) are dropped; one with
+    /// nothing left, or an unknown id, is a no-op. Every clip of the
+    /// media, on every timeline, reads the same transcript.
+    SetTranscript {
+        /// The bin item.
+        media_id: String,
+        /// What was heard, in seconds of the file, with the stream it was
+        /// heard in.
+        transcript: Transcript,
+    },
+    /// Forgets what was heard in one audio stream of a media file. An
+    /// unknown id, or a stream never heard, is a no-op.
+    ClearTranscript {
+        /// The bin item.
+        media_id: String,
+        /// The stream whose transcript goes; None for the default stream.
+        audio_stream: Option<u32>,
+    },
 }
 
 /// What a command produced, beyond the new state: the ids it minted, so the
@@ -1067,7 +1089,9 @@ pub fn apply(
         | Command::AddFont { .. }
         | Command::RemoveFont { .. }
         | Command::UpdateMediaPath { .. }
-        | Command::SetMediaColorRange { .. }) => media::apply(project, mint, command),
+        | Command::SetMediaColorRange { .. }
+        | Command::SetTranscript { .. }
+        | Command::ClearTranscript { .. }) => media::apply(project, mint, command),
         command @ (Command::AddClip { .. }
         | Command::AddClipAtFirstFree { .. }
         | Command::AddTextClip { .. }

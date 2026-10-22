@@ -23,7 +23,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use concat_project::Command;
-use concat_project::model::TextStyle;
+use concat_project::model::{TextStyle, Transcript, TranscriptSegment, TranscriptWord};
 use concat_speech::JobStage;
 use concat_speech::transcribe::Segment;
 
@@ -68,7 +68,31 @@ pub enum CaptionsMsg {
     /// The transcriber's worker reporting the stage it is in.
     Progress(JobStage),
     /// The transcriber's worker is done: what was said, or why not.
-    Finished(Result<Vec<Segment>, String>),
+    Finished(Result<Heard, String>),
+}
+
+/// What a run heard, in seconds from the start of the window it read.
+#[derive(Clone, Debug, Default)]
+pub struct Heard {
+    /// The caption lines to place, already cut to a readable length.
+    pub lines: Vec<Segment>,
+    /// The phrases as the transcriber gave them, kept in the project.
+    pub segments: Vec<Segment>,
+    /// The single words with their times, when the transcriber gave them.
+    pub words: Vec<TranscriptWord>,
+    /// The language heard, when the transcriber said.
+    pub language: String,
+}
+
+impl Heard {
+    /// Lines and phrases are the same: whisper's segments are both.
+    fn of_segments(segments: Vec<Segment>) -> Heard {
+        Heard {
+            lines: segments.clone(),
+            segments,
+            ..Heard::default()
+        }
+    }
 }
 
 /// The clip a transcription is running over, as the finished segments
@@ -77,6 +101,14 @@ pub enum CaptionsMsg {
 struct Subject {
     start: f64,
     speed: f64,
+    /// The file the clip plays, and the stretch of it that was read:
+    /// where the transcript is kept, in the file's own seconds.
+    media_id: String,
+    audio_stream: Option<u32>,
+    source_start: f64,
+    window: f64,
+    /// What heard it, as the transcript names it ("whisper:base").
+    source: String,
     /// The look chosen when the run began.
     look: (f64, f64),
     /// The transcriber model, and the thirty-second windows whisper reads
@@ -209,13 +241,15 @@ impl CaptionsPane {
                         .keep(&subject.model, self.pace.learned(subject.windows));
                 }
                 match result {
-                    Ok(segments) => {
+                    Ok(heard) => {
                         let Some(subject) = subject else {
                             return;
                         };
                         let look = subject.look;
                         let base = studio.prefs.title_style.clone();
-                        let commands: Vec<Command> = segments
+                        let kept = kept_transcript(&subject, &heard);
+                        let commands: Vec<Command> = heard
+                            .lines
                             .into_iter()
                             .filter_map(|segment| {
                                 let text = segment.text.trim().to_owned();
@@ -232,10 +266,15 @@ impl CaptionsPane {
                             .collect();
                         let count = commands.len();
                         self.open = false;
+                        // What was heard is kept with the file, in the same
+                        // undo step as the captions made from it, so a
+                        // second pass over the clip need not listen again.
+                        let mut batch = vec![kept];
+                        batch.extend(commands);
+                        studio.apply(Command::Batch { commands: batch });
                         if count == 0 {
                             studio.notify(&t("captions.nothingSaidClip"), true);
                         } else {
-                            studio.apply(Command::Batch { commands });
                             studio.notify(&tf("captions.addedCaptions", &[&count]), false);
                         }
                     }
@@ -365,6 +404,11 @@ impl CaptionsPane {
         self.subject = Some(Subject {
             start: clip.start,
             speed: clip.speed,
+            media_id: clip.media_id.clone(),
+            audio_stream: clip.audio_stream,
+            source_start: clip.source_start,
+            window: request.window,
+            source: format!("whisper:{model}"),
             look: self.look(),
             model,
             windows,
@@ -374,11 +418,13 @@ impl CaptionsPane {
         let epoch = crate::host::project_epoch();
         spawn_in_project(
             move || {
-                transcriber.transcribe(&dirs, &request, move |stage| {
-                    on_ui_in_project(epoch, move |studio, _, _| {
-                        studio.handle(Msg::Captions(CaptionsMsg::Progress(stage)));
-                    });
-                })
+                transcriber
+                    .transcribe(&dirs, &request, move |stage| {
+                        on_ui_in_project(epoch, move |studio, _, _| {
+                            studio.handle(Msg::Captions(CaptionsMsg::Progress(stage)));
+                        });
+                    })
+                    .map(Heard::of_segments)
             },
             |studio, _, _, result| studio.handle(Msg::Captions(CaptionsMsg::Finished(result))),
         );
@@ -416,6 +462,11 @@ impl CaptionsPane {
         self.subject = Some(Subject {
             start: clip.start,
             speed: clip.speed,
+            media_id: clip.media_id.clone(),
+            audio_stream: clip.audio_stream,
+            source_start: clip.source_start,
+            window,
+            source: label.clone(),
             look: self.look(),
             model: label,
             windows: pieces,
@@ -475,15 +526,30 @@ impl CaptionsPane {
                     montora_ai::AiError::Cancelled => "transcription cancelled".to_owned(),
                     other => error_text(&other),
                 })?;
-                Ok(transcript
-                    .lines(ONLINE_LINE_CHARS, ONLINE_LINE_PAUSE)
-                    .into_iter()
-                    .map(|line| Segment {
-                        start: line.start,
-                        end: line.end,
-                        text: line.text,
-                    })
-                    .collect())
+                let segment = |start: f64, end: f64, text: String| Segment { start, end, text };
+                Ok(Heard {
+                    lines: transcript
+                        .lines(ONLINE_LINE_CHARS, ONLINE_LINE_PAUSE)
+                        .into_iter()
+                        .map(|line| segment(line.start, line.end, line.text))
+                        .collect(),
+                    segments: transcript
+                        .segments
+                        .iter()
+                        .map(|phrase| segment(phrase.start, phrase.end, phrase.text.clone()))
+                        .collect(),
+                    words: transcript
+                        .words
+                        .iter()
+                        .map(|word| TranscriptWord {
+                            start: word.start,
+                            end: word.end,
+                            text: word.word.clone(),
+                            confidence: None,
+                        })
+                        .collect(),
+                    language: transcript.language.clone().unwrap_or_default(),
+                })
             },
             |studio, _, _, result| studio.handle(Msg::Captions(CaptionsMsg::Finished(result))),
         );
@@ -541,6 +607,41 @@ struct Source {
 
 /// The clips on the current timeline that have sound, in the order they
 /// play: an audio clip, or a video whose file has an audio stream.
+/// The command that keeps what a run heard with the clip's file: its
+/// phrases and words moved from the window's seconds to the file's, over
+/// the stretch of the file the run read.
+fn kept_transcript(subject: &Subject, heard: &Heard) -> Command {
+    let at = |seconds: f64| subject.source_start + seconds;
+    Command::SetTranscript {
+        media_id: subject.media_id.clone(),
+        transcript: Transcript {
+            audio_stream: subject.audio_stream,
+            language: heard.language.clone(),
+            source: subject.source.clone(),
+            spans: vec![[subject.source_start, at(subject.window)]],
+            segments: heard
+                .segments
+                .iter()
+                .filter(|segment| !segment.text.trim().is_empty())
+                .map(|segment| TranscriptSegment {
+                    start: at(segment.start),
+                    end: at(segment.end),
+                    text: segment.text.trim().to_owned(),
+                })
+                .collect(),
+            words: heard
+                .words
+                .iter()
+                .map(|word| TranscriptWord {
+                    start: at(word.start),
+                    end: at(word.end),
+                    ..word.clone()
+                })
+                .collect(),
+        },
+    }
+}
+
 fn sources(studio: &Studio) -> Vec<Source> {
     let project = studio.project();
     let mut clips: Vec<_> = studio
@@ -707,7 +808,75 @@ fn wrap_caption(sentence: &str) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{script_captions, source_label};
+    use super::{
+        Command, Heard, Segment, Subject, TranscriptWord, kept_transcript, script_captions,
+        source_label,
+    };
+
+    /// What a run heard is moved from the window's seconds to the file's,
+    /// over the stretch of the file it read; a blank phrase is not kept.
+    #[test]
+    fn what_a_run_heard_is_kept_in_the_files_own_seconds() {
+        let subject = Subject {
+            start: 3.0,
+            speed: 2.0,
+            media_id: "m1".to_owned(),
+            audio_stream: Some(1),
+            source_start: 10.0,
+            window: 5.0,
+            source: "whisper:base".to_owned(),
+            look: (0.0, 0.0),
+            model: "base".to_owned(),
+            windows: 1.0,
+        };
+        let heard = Heard {
+            lines: Vec::new(),
+            segments: vec![
+                Segment {
+                    start: 1.0,
+                    end: 2.0,
+                    text: " la perle ".to_owned(),
+                },
+                Segment {
+                    start: 2.5,
+                    end: 3.0,
+                    text: "  ".to_owned(),
+                },
+            ],
+            words: vec![TranscriptWord {
+                start: 1.0,
+                end: 1.4,
+                text: "la".to_owned(),
+                confidence: None,
+            }],
+            language: "fr".to_owned(),
+        };
+        let Command::SetTranscript {
+            media_id,
+            transcript,
+        } = kept_transcript(&subject, &heard)
+        else {
+            panic!("keeps a transcript");
+        };
+        assert_eq!(media_id, "m1");
+        assert_eq!(transcript.audio_stream, Some(1));
+        assert_eq!(
+            transcript.spans,
+            vec![[10.0, 15.0]],
+            "the stretch of the file read"
+        );
+        assert_eq!(transcript.segments.len(), 1, "a blank phrase is not kept");
+        assert_eq!(transcript.segments[0].text, "la perle");
+        assert_eq!(
+            (transcript.segments[0].start, transcript.segments[0].end),
+            (11.0, 12.0)
+        );
+        assert_eq!(
+            (transcript.words[0].start, transcript.words[0].end),
+            (11.0, 11.4)
+        );
+        assert_eq!(transcript.source, "whisper:base");
+    }
 
     /// A clip in the voice list is its file and where it starts, in
     /// minutes and seconds, with hours once there are any.
