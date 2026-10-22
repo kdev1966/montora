@@ -89,70 +89,24 @@ jobs:
           echo "code=$code" >> "$GITHUB_OUTPUT"
           printf 'Changed files:\n%s\nTest the engine: %s\n' "${files:-(all)}" "$code"
 
-  macos:
-    name: macOS tests and lints
+  # The lints and the tests run side by side, each on a Mac of its own:
+  # the lints compile the workspace for checking only, the tests compile
+  # it for running, and one after the other on one Mac they took the sum
+  # of both. "macOS tests and lints", the check main's protection asks
+  # for, is the job at the end that reports both.
+  lints:
+    name: macOS lints
     needs: changes
     if: needs.changes.outputs.code == 'true'
     # Apple silicon: GitHub's arm64 runners are the quicker and the more
-    # available. The Intel build is made and checked by build-app.yml on a
-    # release tag. No GPU tests are forced here (CONCAT_REQUIRE_GPU is not
-    # set): a runner's virtual GPU is not the one a Mac has.
+    # available. The Intel build is made and checked by build-app.yml.
     runs-on: macos-15
-    # The steps that can run long have timeouts of their own, so a stuck
-    # step is named by its own timeout; this is for a job stuck elsewhere.
-    timeout-minutes: 180
-    env:
-      # No debug info in the test binaries: smaller, faster to link, and
-      # nothing reads it here.
-      CARGO_PROFILE_DEV_DEBUG: "0"
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.ref }}
-      # The toolchain src/rust-toolchain.toml pins, installed by name.
-      - name: The pinned toolchain
-        id: toolchain
-        run: echo "channel=$(sed -n 's/^channel = "\(.*\)"/\1/p' src/rust-toolchain.toml)" >> "$GITHUB_OUTPUT"
-      - uses: dtolnay/rust-toolchain@e2a55d2ffb04f378e9626c28d38b36d230d1e12f # master (v1), 2026-10-09
-        with:
-          toolchain: ${{ steps.toolchain.outputs.channel }}
-          components: clippy, rustfmt
-      # cargo-nextest runs the tests: each in a process of its own, with a
-      # timeout per test and a JUnit report. See src/.config/nextest.toml.
-      - uses: taiki-e/install-action@ab6895351a88b908e96a4697860d4ffea5e57dbe # v2.87.27
-        with:
-          tool: cargo-nextest@0.9.148
-      - name: FFmpeg and cmake
-        run: |
-          set -euo pipefail
-          brew install ffmpeg cmake
-          echo "FFMPEG_DIR=$(brew --prefix ffmpeg)" >> "$GITHUB_ENV"
-      # The prebuilt sherpa-onnx library, fetched here rather than left to
-      # its build script, which unpacks it into target/, where rust-cache
-      # does not keep it. The version is the lockfile's, and deps.lock must
-      # pin that version's file.
-      - name: sherpa-onnx libraries
-        run: |
-          set -euo pipefail
-          version=$(grep -A1 'name = "sherpa-onnx-sys"' src/Cargo.lock | sed -n 's/^version = "\(.*\)"/\1/p')
-          name=sherpa-onnx-osx-arm64-static-lib
-          case "$(scripts/ci/fetch.sh --url "$name")" in
-            */v"$version"/*) ;;
-            *) echo "scripts/ci/deps.lock pins $name for another version than Cargo.lock's $version" >&2; exit 1 ;;
-          esac
-          stem="sherpa-onnx-v$version-osx-arm64-static-lib"
-          scripts/ci/fetch.sh "$name" sherpa.tar.bz2
-          mkdir -p sherpa
-          tar -xjf sherpa.tar.bz2 -C sherpa
-          test -d "sherpa/$stem/lib"
-          echo "SHERPA_ONNX_LIB_DIR=$PWD/sherpa/$stem/lib" >> "$GITHUB_ENV"
-      # Saved even when the job fails: a cache saved only by a green run
-      # is never saved while the job is red, and every red run then
-      # compiles from nothing.
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        with:
-          workspaces: src
-          cache-on-failure: true
+      - uses: ./.github/actions/rust-macos
 
       - run: cargo fmt --check
         working-directory: src
@@ -166,6 +120,33 @@ jobs:
       - run: cargo clippy --workspace --all-targets -- -D warnings
         timeout-minutes: 45
         working-directory: src
+      # The gRPC transport is a feature nothing else in the workspace turns
+      # on, so it is linted on its own. See concat-server.
+      - run: cargo clippy -p concat-server -p concat-cli --features grpc --all-targets -- -D warnings
+        timeout-minutes: 15
+        working-directory: src
+
+  tests:
+    name: macOS tests
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    # No GPU tests are forced here (CONCAT_REQUIRE_GPU is not set): a
+    # runner's virtual GPU is not the one a Mac has.
+    runs-on: macos-15
+    # The steps that can run long have timeouts of their own, so a stuck
+    # step is named by its own timeout; this is for a job stuck elsewhere.
+    timeout-minutes: 150
+    env:
+      # No debug info in the test binaries: smaller, faster to link, and
+      # nothing reads it here.
+      CARGO_PROFILE_DEV_DEBUG: "0"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: ./.github/actions/rust-macos
+        with:
+          nextest: "true"
 
       # The tests are compiled in a step of their own, so a slow compile
       # and a slow test are told apart by which step ran out of time.
@@ -186,11 +167,6 @@ jobs:
         timeout-minutes: 15
         working-directory: src
         run: cargo test --workspace --doc
-      # The gRPC transport is a feature nothing else in the workspace turns
-      # on, so it is linted and tested here on its own. See concat-server.
-      - run: cargo clippy -p concat-server -p concat-cli --features grpc --all-targets -- -D warnings
-        timeout-minutes: 15
-        working-directory: src
       - name: Run the gRPC tests
         timeout-minutes: 15
         working-directory: src
@@ -209,3 +185,28 @@ jobs:
             src/target/nextest/ci/*.xml
             src/nextest-*.log
           if-no-files-found: ignore
+
+  # The check main's protection asks for. It runs whatever happened above,
+  # and passes when both jobs passed, or when both were skipped because
+  # only documentation changed; anything else, a failure or a cancelled
+  # job, fails it.
+  macos:
+    name: macOS tests and lints
+    needs: [changes, lints, tests]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - env:
+          CODE: ${{ needs.changes.outputs.code }}
+          CHANGES: ${{ needs.changes.result }}
+          LINTS: ${{ needs.lints.result }}
+          TESTS: ${{ needs.tests.result }}
+        run: |
+          echo "changes: $CHANGES, code: $CODE, lints: $LINTS, tests: $TESTS"
+          [ "$CHANGES" = success ] || exit 1
+          if [ "$CODE" = true ]; then
+            [ "$LINTS" = success ] && [ "$TESTS" = success ]
+          else
+            [ "$LINTS" = skipped ] && [ "$TESTS" = skipped ]
+          fi
