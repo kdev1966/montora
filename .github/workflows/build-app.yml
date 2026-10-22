@@ -46,6 +46,10 @@ name: Build app
 # The four targets are a matrix so one fails without taking the rest down;
 # `fail-fast` is off for the same reason.
 on:
+  # By hand, to build the bundles of a branch without a release: they are
+  # kept as the run's artifacts. Secrets are not passed, so the macOS
+  # bundles are ad-hoc signed.
+  workflow_dispatch:
   workflow_call:
     inputs:
       ref:
@@ -236,16 +240,43 @@ jobs:
           } >> "$GITHUB_ENV"
 
       # ── macOS ──────────────────────────────────────────────────────────
+      # FFmpeg built here, for MACOSX_DEPLOYMENT_TARGET, by
+      # scripts/ci/ffmpeg-macos.sh: Homebrew's is built for the runner's
+      # macOS, and a bundle made from it does not start on an older one
+      # (the minimum-macOS check in the bundle step). Kept in the cache by
+      # the script and the pinned sources, so it is built once per bump.
       # FFMPEG_DIR, same as the other platforms: ffmpeg-sys honours it ahead
       # of every fallback, so the build never depends on the runner image
-      # happening to carry a pkg-config that knows about Homebrew - the
-      # arm64 image did not, and the build died in the pkg-config fallback.
+      # happening to carry a pkg-config that knows about Homebrew.
+      - name: Build tools (macOS)
+        if: matrix.platform == 'macos'
+        run: brew install cmake dylibbundler meson nasm ninja pkgconf
+
+      - name: FFmpeg from the cache (macOS)
+        if: matrix.platform == 'macos'
+        id: ffmpeg-cache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ffmpeg-macos
+          key: ffmpeg-macos-${{ matrix.arch }}-${{ env.MACOSX_DEPLOYMENT_TARGET }}-${{ hashFiles('scripts/ci/ffmpeg-macos.sh', 'scripts/ci/deps.lock') }}
+
+      - name: FFmpeg for macOS ${{ env.MACOSX_DEPLOYMENT_TARGET }}
+        if: matrix.platform == 'macos' && steps.ffmpeg-cache.outputs.cache-hit != 'true'
+        timeout-minutes: 60
+        run: scripts/ci/ffmpeg-macos.sh ffmpeg-macos
+
+      - name: Keep FFmpeg in the cache (macOS)
+        if: matrix.platform == 'macos' && steps.ffmpeg-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ffmpeg-macos
+          key: ${{ steps.ffmpeg-cache.outputs.cache-primary-key }}
+
       - name: FFmpeg development libraries (macOS)
         if: matrix.platform == 'macos'
         run: |
           set -euo pipefail
-          brew install ffmpeg cmake dylibbundler
-          echo "FFMPEG_DIR=$(brew --prefix ffmpeg)" >> "$GITHUB_ENV"
+          echo "FFMPEG_DIR=$PWD/ffmpeg-macos" >> "$GITHUB_ENV"
           # ggml's Metal code asks `@available(macOS 15, *)` before using
           # residency sets. Below that deployment target the question is
           # answered at run time by ___isPlatformVersionAtLeast, which lives

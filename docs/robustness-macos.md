@@ -23,8 +23,9 @@ Chaque correction se fait sur sa branche, avec un test qui reproduit le problèm
 
 - [ ] **Le .dmg doit démarrer sous macOS 12** (Concat #342, #372). libavdevice n'est plus
       lié (fait). Reste : le FFmpeg de Homebrew des serveurs GitHub et ses bibliothèques
-      sont compilés pour macOS 15. La fabrication du .dmg le détecte désormais et échoue ;
-      il faut compiler FFmpeg et ses dépendances pour macOS 12 avant la pré-version.
+      sont compilés pour macOS 15. La fabrication du .dmg le détecte désormais et échoue.
+      En cours : FFmpeg compilé par nous pour macOS 12 (`scripts/ci/ffmpeg-macos.sh`).
+      Reste à vérifier : le .dmg Intel lancé sur le Mac de l'utilisateur.
 
 ## Gravité moyenne
 
