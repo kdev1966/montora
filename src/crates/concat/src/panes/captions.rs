@@ -810,8 +810,8 @@ fn wrap_caption(sentence: &str) -> Vec<String> {
 mod tests {
     use super::{script_captions, source_label};
 
-    /// A clip in the voice list is its file and where it starts, in
-    /// minutes and seconds, with hours once there are any.
+    /// What a run heard is moved from the window's seconds to the file's,
+    /// over the stretch of the file it read; a blank phrase is not kept.
     #[test]
     fn what_a_run_heard_is_kept_in_the_files_own_seconds() {
         let subject = Subject {
@@ -875,6 +875,8 @@ mod tests {
         assert_eq!(transcript.source, "whisper:base");
     }
 
+    /// A clip in the voice list is its file and where it starts, in
+    /// minutes and seconds, with hours once there are any.
     #[test]
     fn a_voice_is_named_by_its_file_and_where_it_starts() {
         assert_eq!(source_label("Interview.mp4", 0.0), "Interview.mp4 · 0:00");
