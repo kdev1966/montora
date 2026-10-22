@@ -1890,6 +1890,13 @@ pub enum Confirm {
     /// this a disk unplugged, full or read-only made a window that would
     /// never close.
     QuitWithoutSaving { error: String },
+    /// Taking the silences found in a clip out of it: `ranges` in seconds
+    /// of the clip's file, `total` their length.
+    RemoveSilences {
+        clip_id: String,
+        ranges: Vec<[f64; 2]>,
+        total: f64,
+    },
 }
 
 /// One clip on the clipboard: the clip as it was when copied, and the row
@@ -2176,6 +2183,12 @@ impl Studio {
                 self.release_project();
                 slint::quit_event_loop().ok();
             }
+            Some(Confirm::RemoveSilences {
+                clip_id, ranges, ..
+            }) => {
+                self.flush_commit();
+                self.apply(Command::RemoveRanges { clip_id, ranges });
+            }
             None => {}
         }
     }
@@ -2216,6 +2229,16 @@ impl Studio {
                 title: t("close.unsavedTitle").into(),
                 message: tf("close.unsavedMessage", &[error]).into(),
                 action: t("close.quitWithoutSaving").into(),
+            },
+            Confirm::RemoveSilences { ranges, total, .. } => crate::ui::ConfirmData {
+                open: true,
+                title: t("studio.removeSilencesTitle").into(),
+                message: tf(
+                    "studio.removeSilencesMessage",
+                    &[&ranges.len(), &format!("{total:.1}")],
+                )
+                .into(),
+                action: t("common.delete").into(),
             },
         }
     }
@@ -5804,6 +5827,83 @@ impl Studio {
     /// where the file goes and what it is called, which makes it theirs
     /// the way a file dragged in is. On a phone, which has no save dialog,
     /// it goes in the project's audio folder under the clip's name.
+    /// Reads the clip's sound on a worker, finds its silences and asks
+    /// before taking them out (`Confirm::RemoveSilences`). A video whose
+    /// sound was detached to another track is refused: cutting the picture
+    /// alone would leave the sound behind it out of step.
+    pub fn find_silences(&mut self, clip: &Clip) {
+        if !self.clip_has_sound(clip) {
+            self.notify(&t("studio.noSilencesFound"), false);
+            return;
+        }
+        let end = clip.start + clip.duration;
+        let linked = self.timeline().clips.iter().any(|other| {
+            other.id != clip.id
+                && other.media_id == clip.media_id
+                && other.track_id != clip.track_id
+                && other.start < end
+                && clip.start < other.start + other.duration
+        });
+        if linked {
+            self.notify(&t("studio.silencesLinkedSound"), true);
+            return;
+        }
+        let Some(path) = self
+            .project()
+            .media_by_id(&clip.media_id)
+            .map(|media| media.path.clone())
+        else {
+            return;
+        };
+        let options = concat_media::AudioOptions {
+            start: Some(clip.source_start),
+            duration: Some(clip.duration * clip.speed),
+            filters: Vec::new(),
+            rate: 16_000,
+            channels: 1,
+            format: concat_media::SampleFormat::F32,
+            stream: clip.audio_stream.map(|index| index as usize),
+        };
+        let clip_id = clip.id.clone();
+        let source_start = clip.source_start;
+        self.notify(&t("studio.findingSilences"), false);
+        spawn_in_project(
+            move || {
+                let samples = concat_media::AudioDecoder::open(&path, &options)
+                    .and_then(|mut decoder| decoder.collect_f32())
+                    .map_err(|error| error.to_string())?;
+                let settings = concat_media::silence::SilenceSettings::default();
+                Ok::<_, String>(
+                    concat_media::silence::find_silences(&samples, 16_000, &settings)
+                        .into_iter()
+                        .map(|(start, end)| [source_start + start, source_start + end])
+                        .collect::<Vec<[f64; 2]>>(),
+                )
+            },
+            move |studio, _, _, found| match found {
+                Ok(ranges) if ranges.is_empty() => {
+                    studio.notify(&t("studio.noSilencesFound"), false);
+                }
+                Ok(ranges) => {
+                    let total = ranges.iter().map(|[start, end]| end - start).sum();
+                    log::info!(
+                        "silences: {} found in {clip_id}, {total:.1} s",
+                        ranges.len()
+                    );
+                    studio.confirm = Some(Confirm::RemoveSilences {
+                        clip_id,
+                        ranges,
+                        total,
+                    });
+                }
+                Err(error) => {
+                    log::warn!("silences: could not read {clip_id}: {error}");
+                    studio.notify(&tf("studio.couldNotFindSilences", &[&error]), true);
+                }
+            },
+        );
+    }
+
     pub fn export_clip_audio(&mut self, id: &str) {
         let Some(clip) = self.clip(id).cloned() else {
             return;
@@ -9689,6 +9789,17 @@ impl Studio {
             ));
             rows.push(rule());
         }
+        // The quiet stretches of the clip's sound, found and offered for
+        // removal; nothing is cut before the confirmation sheet says so.
+        if clip.kind == model::ClipKind::Audio || clip.kind == model::ClipKind::Video {
+            rows.push(action(
+                "silences",
+                t("studio.removeSilences"),
+                Glyph::Waveform,
+                "",
+                !locked && clip.speed_curve.is_none() && self.clip_has_sound(clip),
+            ));
+        }
         // The clip's sound, written out as it plays, as a file of its own
         // in the bin. For anything with sound in it; a clip whose track is
         // muted still renders, since the file is the clip's and not the
@@ -10397,6 +10508,7 @@ impl Studio {
                 self.inspector_jump = (self.inspector_jump.0 + 1, "Video", "Enhance");
             }
             "export-audio" => self.export_clip_audio(id),
+            "silences" => self.find_silences(&clip),
             "detach" => self.detach_audio(&clip),
             "reattach" => {
                 self.apply(Command::ReattachAudio {
