@@ -2609,6 +2609,105 @@ mod tests {
         assert_eq!(untouched.transition_in, None);
     }
 
+    /// Stretches of a clip's file come out of it as one edit: the pieces
+    /// left play the same source they did, close up on their track, and
+    /// one undo puts the whole clip back.
+    #[test]
+    fn ranges_of_the_file_come_out_of_a_clip_as_one_undoable_edit() {
+        let (mut editor, _media_id, clip_id) = fixture();
+        let track_id = editor.project().active().tracks[0].id.clone();
+        let before = editor.project().clone();
+        let source = |editor: &Editor| -> Vec<(f64, f64, f64)> {
+            let mut clips: Vec<(f64, f64, f64)> = editor
+                .project()
+                .active()
+                .clips
+                .iter()
+                .filter(|clip| clip.track_id == track_id)
+                .map(|clip| (clip.start, clip.duration, clip.source_start))
+                .collect();
+            clips.sort_by(|a, b| a.0.total_cmp(&b.0));
+            clips
+        };
+
+        // Out: 0-1 s (the head), 4-5 s, and 8.5-12 s (past the end, clamped);
+        // a backwards range and one shorter than a frame are ignored.
+        let view = editor
+            .apply(Command::RemoveRanges {
+                clip_id: clip_id.clone(),
+                ranges: vec![
+                    [4.0, 5.0],
+                    [0.0, 1.0],
+                    [8.5, 12.0],
+                    [7.0, 6.0],
+                    [2.0, 2.001],
+                ],
+            })
+            .expect("cuts");
+        assert!(view.applied);
+        let left = source(&editor);
+        let close = |a: f64, b: f64| (a - b).abs() < 1e-9;
+        assert_eq!(left.len(), 2, "two pieces are left: {left:?}");
+        // 1-4 s of the file, then 5-8.5 s, back to back from zero.
+        assert!(
+            close(left[0].0, 0.0) && close(left[0].1, 3.0) && close(left[0].2, 1.0),
+            "{left:?}"
+        );
+        assert!(
+            close(left[1].0, 3.0) && close(left[1].1, 3.5) && close(left[1].2, 5.0),
+            "{left:?}"
+        );
+
+        editor.undo();
+        assert_eq!(
+            editor.project(),
+            &before,
+            "one undo puts the clip back whole"
+        );
+
+        // A number that is not one is refused, like in every command;
+        // nothing to take, or an unknown clip, changes nothing; a range
+        // over the whole clip takes it.
+        assert!(
+            editor
+                .apply(Command::RemoveRanges {
+                    clip_id: clip_id.clone(),
+                    ranges: vec![[f64::NAN, 2.0]],
+                })
+                .is_err()
+        );
+        let none = editor
+            .apply(Command::RemoveRanges {
+                clip_id: clip_id.clone(),
+                ranges: vec![[2.0, 2.001]],
+            })
+            .expect("no-op");
+        assert!(!none.applied);
+        let unknown = editor
+            .apply(Command::RemoveRanges {
+                clip_id: "c999".to_owned(),
+                ranges: vec![[0.0, 1.0]],
+            })
+            .expect("no-op");
+        assert!(!unknown.applied);
+        editor
+            .apply(Command::RemoveRanges {
+                clip_id: clip_id.clone(),
+                ranges: vec![[-1.0, 20.0]],
+            })
+            .expect("takes all");
+        assert!(
+            source(&editor).is_empty(),
+            "a range over the whole clip takes it"
+        );
+
+        let parsed: Command = serde_json::from_value(json!({
+            "op": "removeRanges", "clipId": "c1", "ranges": [[1.0, 2.0]]
+        }))
+        .expect("parses");
+        assert!(matches!(parsed, Command::RemoveRanges { .. }));
+    }
+
     /// What was heard in a media file is kept with it: saved and read back,
     /// a stretch heard again replaces only that stretch, entries that
     /// cannot be trusted are dropped, and it is set, cleared and undone

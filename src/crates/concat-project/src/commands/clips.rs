@@ -642,6 +642,86 @@ pub(super) fn apply(
             })
         }
 
+        Command::RemoveRanges { clip_id, ranges } => {
+            let Some(clip) = project.active().clip(&clip_id).cloned() else {
+                return Ok(Outcome::default());
+            };
+            if clip.speed_curve.is_some() || !clip.speed.is_finite() || clip.speed <= 0.0 {
+                return Ok(Outcome::default());
+            }
+            // The ranges as timeline seconds within the clip, in order and
+            // joined where they touch.
+            let shown = (clip.start, clip.start + clip.duration);
+            let at = |source: f64| clip.start + (source - clip.source_start) / clip.speed;
+            let mut spans: Vec<(f64, f64)> = ranges
+                .iter()
+                .filter(|[start, end]| start.is_finite() && end.is_finite() && start < end)
+                .map(|[start, end]| (at(*start).max(shown.0), at(*end).min(shown.1)))
+                .filter(|(start, end)| end - start >= MIN_CLIP_DURATION)
+                .collect();
+            spans.sort_by(|a, b| a.0.total_cmp(&b.0));
+            let mut joined: Vec<(f64, f64)> = Vec::with_capacity(spans.len());
+            for span in spans {
+                match joined.last_mut() {
+                    Some(last) if span.0 <= last.1 => last.1 = last.1.max(span.1),
+                    _ => joined.push(span),
+                }
+            }
+            // Last stretch first: the clip named `clip_id` is always the
+            // piece in front of the stretch being taken, and the ripple
+            // only moves what is behind it.
+            let mut applied = false;
+            for (start, end) in joined.into_iter().rev() {
+                let Some(piece) = project.active().clip(&clip_id).cloned() else {
+                    break;
+                };
+                let piece_end = piece.start + piece.duration;
+                if end < piece_end - MIN_CLIP_DURATION {
+                    apply(
+                        project,
+                        mint,
+                        Command::SplitClips {
+                            clip_ids: vec![clip_id.clone()],
+                            time: end,
+                        },
+                    )?;
+                }
+                let doomed = if start <= piece.start + MIN_CLIP_DURATION {
+                    // The stretch starts the piece: the piece itself goes,
+                    // and what follows it keeps playing.
+                    Some(clip_id.clone())
+                } else {
+                    apply(
+                        project,
+                        mint,
+                        Command::SplitClips {
+                            clip_ids: vec![clip_id.clone()],
+                            time: start,
+                        },
+                    )?
+                    .created_id
+                };
+                if let Some(doomed) = doomed {
+                    let removed = apply(
+                        project,
+                        mint,
+                        Command::RemoveClips {
+                            clip_ids: vec![doomed.clone()],
+                            ripple: true,
+                        },
+                    )?;
+                    applied |= removed.applied;
+                    if doomed == clip_id {
+                        break;
+                    }
+                }
+            }
+            Ok(Outcome {
+                created_id: None,
+                applied,
+            })
+        }
+
         _ => unreachable!("commands::apply routes only this module's commands here"),
     }
 }
