@@ -29,7 +29,7 @@ so this script writes those lines of en.json itself:
     effects.labels.<label>                a knob's label
     presets.<name>                        a text preset's name
 
-en.json is the inventory a translator starts from; see TRANSLATING.md.
+en.json is the inventory a translator starts from; see docs/TRANSLATING.md.
 
 Every `locales/<code>.json` is compiled in through `BUILT_IN` in
 src/crates/concat/src/i18n.rs. Montora's README is written in fewer

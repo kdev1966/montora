@@ -167,6 +167,13 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
     // display's own; nothing remembered leaves an inherited
     // SLINT_SCALE_FACTOR alone, so a value set by hand still wins.
     // https://github.com/jub0t/Concat/issues/320
+    // The GPU choice too, before any adapter is opened; see gpu.rs.
+    #[cfg(not(target_os = "android"))]
+    if let Ok(dirs) = concat_host::AppDirs::locate() {
+        let choice = prefs::Preferences::load(&dirs).gpu;
+        // SAFETY: single-threaded here, as for the scale below.
+        unsafe { gpu::apply_choice(choice.as_deref()) };
+    }
     if std::env::var_os("SLINT_SCALE_FACTOR").is_none()
         && let Ok(dirs) = concat_host::AppDirs::locate()
         && let Some(percent) = prefs::Preferences::load(&dirs).ui_scale
@@ -342,6 +349,7 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
         app.set_voices(ModelRc::from(models.voices.clone()));
         app.set_versions(ModelRc::from(models.versions.clone()));
         app.set_version_details(ModelRc::from(models.version_details.clone()));
+        app.set_ai_models(ModelRc::from(models.ai_models.clone()));
         editor.set_seats(ModelRc::from(models.seats.clone()));
         editor.set_dividers(ModelRc::from(models.dividers.clone()));
         app.set_recents(ModelRc::from(models.recents.clone()));
@@ -1595,6 +1603,9 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
     app.on_settings_log_level_changed(on_window!(|state, index: i32| {
         state.handle(Msg::Settings(SettingsMsg::LogLevelChanged(index)));
     }));
+    app.on_settings_gpu_changed(on_window!(|state, index: i32| {
+        state.handle(Msg::Settings(SettingsMsg::GpuChanged(index)));
+    }));
     app.on_settings_playhead_stops_changed(on_window!(|state, on: bool| {
         state.handle(Msg::Settings(SettingsMsg::PlayheadStopsChanged(on)));
     }));
@@ -1627,6 +1638,34 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
     }));
     app.on_settings_server_token_generated(on_window!(|state| {
         state.handle(Msg::Settings(SettingsMsg::ServerTokenGenerated));
+    }));
+    app.on_settings_ai_provider_changed(on_window!(|state, index: i32| {
+        state.handle(Msg::Settings(SettingsMsg::AiProviderChanged(index)));
+    }));
+    app.on_settings_ai_custom_url_edited(on_window!(|state, text: SharedString| {
+        state.handle(Msg::Settings(SettingsMsg::AiCustomUrlEdited(
+            text.to_string(),
+        )));
+    }));
+    app.on_settings_ai_key_edited(on_window!(|state, text: SharedString| {
+        state.handle(Msg::Settings(SettingsMsg::AiKeyEdited(
+            crate::panes::ai_settings::Secret(text.to_string()),
+        )));
+    }));
+    app.on_settings_ai_key_save(on_window!(|state| {
+        state.handle(Msg::Settings(SettingsMsg::AiKeySave));
+    }));
+    app.on_settings_ai_key_forget(on_window!(|state| {
+        state.handle(Msg::Settings(SettingsMsg::AiKeyForget));
+    }));
+    app.on_settings_ai_get_key(on_window!(|state| {
+        state.handle(Msg::Settings(SettingsMsg::AiGetKey));
+    }));
+    app.on_settings_ai_refresh_models(on_window!(|state| {
+        state.handle(Msg::Settings(SettingsMsg::AiRefreshModels));
+    }));
+    app.on_settings_ai_model_chosen(on_window!(|state, index: i32| {
+        state.handle(Msg::Settings(SettingsMsg::AiModelChosen(index)));
     }));
     app.on_settings_check_updates(on_window!(|state| {
         state.handle(Msg::Settings(SettingsMsg::CheckUpdates));

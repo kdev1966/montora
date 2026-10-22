@@ -212,6 +212,7 @@ export component App inherits Window {
     in property <[ModelData]> voices;
     in property <[string]> versions;
     in property <[string]> version-details;
+    in property <[string]> ai-models;
     in property <[string]> languages;
     /// Settings > About's copyable block. Gathered once in main.rs and
     /// never republished — every line of it is fixed for the life of the
@@ -249,6 +250,7 @@ export component App inherits Window {
     callback settings-playhead-reset();
     callback settings-scale-changed(index: int);
     callback settings-playhead-stops-changed(on: bool);
+    callback settings-gpu-changed(index: int);
     callback settings-magnetic-changed(on: bool);
     callback settings-download-source-changed(index: int);
     callback settings-download-base-edited(text: string);
@@ -257,6 +259,14 @@ export component App inherits Window {
     callback settings-server-port-edited(port: int);
     callback settings-server-token-edited(text: string);
     callback settings-server-token-generated();
+    callback settings-ai-provider-changed(index: int);
+    callback settings-ai-custom-url-edited(text: string);
+    callback settings-ai-key-edited(text: string);
+    callback settings-ai-key-save();
+    callback settings-ai-key-forget();
+    callback settings-ai-get-key();
+    callback settings-ai-refresh-models();
+    callback settings-ai-model-chosen(index: int);
     callback settings-check-updates();
     callback settings-version-chosen(index: int);
     callback settings-install-version();
@@ -745,6 +755,7 @@ export component App inherits Window {
         languages: root.languages;
         system-facts: root.system-facts;
         system-report: root.system-report;
+        ai-models: root.ai-models;
 
         closed => { root.settings-closed(); }
         page-changed(index) => { root.settings-page-changed(index); }
@@ -758,6 +769,7 @@ export component App inherits Window {
         playhead-reset => { root.settings-playhead-reset(); }
         scale-changed(index) => { root.settings-scale-changed(index); }
         playhead-stops-changed(on) => { root.settings-playhead-stops-changed(on); }
+        gpu-changed(index) => { root.settings-gpu-changed(index); }
         magnetic-changed(on) => { root.settings-magnetic-changed(on); }
         download-source-changed(index) => { root.settings-download-source-changed(index); }
         download-base-edited(text) => { root.settings-download-base-edited(text); }
@@ -774,6 +786,14 @@ export component App inherits Window {
         model-download(id) => { root.model-download(id); }
         model-cancel(id) => { root.model-cancel(id); }
         model-remove(id) => { root.model-remove(id); }
+        ai-provider-changed(index) => { root.settings-ai-provider-changed(index); }
+        ai-custom-url-edited(text) => { root.settings-ai-custom-url-edited(text); }
+        ai-key-edited(text) => { root.settings-ai-key-edited(text); }
+        ai-key-save => { root.settings-ai-key-save(); }
+        ai-key-forget => { root.settings-ai-key-forget(); }
+        ai-get-key => { root.settings-ai-get-key(); }
+        ai-refresh-models => { root.settings-ai-refresh-models(); }
+        ai-model-chosen(index) => { root.settings-ai-model-chosen(index); }
     }
 
     in property <RelinkData> relink;

@@ -5,22 +5,10 @@ name: Nix
 # repository's and is refreshed by hand - `nix flake lock`, committed under
 # the author's own name - so the job builds exactly what is checked in and
 # fails, saying so, when the lock has fallen behind the flake.
+# By hand only while Montora is macOS-first (0.3.0): the flake is Linux's,
+# and Linux comes back in 0.4. Run it from the Actions tab when the flake
+# or the lockfile changes.
 on:
-  push:
-    branches: [main]
-    paths:
-      - flake.nix
-      - flake.lock
-      - src/Cargo.lock
-      - src/Cargo.toml
-      - src/crates/*/Cargo.toml
-      - .github/workflows/nix.yml
-  pull_request:
-    paths:
-      - flake.nix
-      - flake.lock
-      - src/Cargo.lock
-      - .github/workflows/nix.yml
   workflow_dispatch:
 
 # Only a pull request's run is superseded by the next push to it; a run on

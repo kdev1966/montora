@@ -27,6 +27,23 @@ pub fn system() -> String {
     os::describe().unwrap_or_else(|| std::env::consts::OS.to_owned())
 }
 
+/// The major version of macOS this runs on (12 for Monterey), or `None`
+/// anywhere else or when the kernel does not say.
+pub fn macos_major() -> Option<u32> {
+    #[cfg(target_os = "macos")]
+    {
+        os::sysctl("kern.osproductversion")?
+            .split('.')
+            .next()?
+            .parse()
+            .ok()
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        None
+    }
+}
+
 /// One line about the CPU: its name where the system says it, how many
 /// threads it runs, and which of the instruction sets the libraries Concat
 /// links care about it has - the ones a build for a newer CPU than the

@@ -56,7 +56,7 @@ This exception applies only while all of the following hold.
    the AGPL by describing it as a plugin, a host, a runtime, or a bundled
    dependency of an Independent Module.
 4. **Trademarks are separate.** This exception grants no rights in the Concat
-   name or logo. See [`TRADEMARK.md`](TRADEMARK.md).
+   name or logo. See [`TRADEMARK.md`](docs/TRADEMARK.md).
 
 ### Notes
 

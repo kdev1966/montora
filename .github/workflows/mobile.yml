@@ -69,7 +69,8 @@ on:
       ANDROID_KEY_PASSWORD:
         description: The key's own password; the keystore's when unset
         required: false
-  pull_request:
+  # No pull_request trigger while Montora is macOS-first (0.3.0): Android
+  # comes back in 0.4. Run it by hand from the Actions tab meanwhile.
   workflow_dispatch:
 
 # Keyed by the calling workflow too, so a call from a release never shares

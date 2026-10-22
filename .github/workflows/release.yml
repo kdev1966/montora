@@ -1,10 +1,10 @@
 name: Release
 
 # Pushing a tag that starts with v (v0.3.0, v0.3.0-alpha.1, ...) builds the
-# app for every platform and architecture, desktops and phones, and
-# publishes a GitHub release under that tag with one bundle per target and
-# a checksum file. The targets are Windows x86_64, macOS arm64 and x86_64,
-# Linux x86_64 and Android arm64. A tag containing a hyphen is a
+# app and publishes a GitHub release under that tag with one bundle per
+# target and a checksum file. While Montora is made solid on macOS the
+# targets are the Mac's alone, arm64 and x86_64 (build-app.yml); the
+# phones job comes back with Android. A tag containing a hyphen is a
 # pre-release. The tag must be the workspace's
 # version, alone or with a pre-release suffix: a release whose files say
 # one number and whose tag says another is a release nobody can reason
@@ -102,19 +102,9 @@ jobs:
       ref: ${{ needs.check.outputs.tag }}
     secrets: inherit
 
-  # `sign` is the one thing that puts the repository's Android key into a
-  # run; a pull request's build of mobile.yml never gets it.
-  phones:
-    needs: [check, engine]
-    uses: ./.github/workflows/mobile.yml
-    with:
-      ref: ${{ needs.check.outputs.tag }}
-      sign: true
-    secrets: inherit
-
   publish:
     name: Publish release
-    needs: [check, build, phones]
+    needs: [check, build]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:

@@ -27,6 +27,86 @@ pub fn adapter_description() -> Option<&'static str> {
     ADAPTER.get().map(String::as_str)
 }
 
+/// Which GPU to ask for: the most powerful, unless `MONTORA_GPU=integrated`
+/// asks for the machine's integrated one. On a Mac with two GPUs the
+/// discrete one is not always the one that holds up: a 2015 MacBook Pro's
+/// Radeon R9 M370X stalled on the effect cards' shaders under macOS 12
+/// until the kernel restarted it, taking the session down with it. This
+/// lets such a machine run on its other GPU. Read in both places an
+/// adapter is chosen: here and in concat-render's gpu.rs.
+pub fn power_preference() -> wgpu::PowerPreference {
+    match std::env::var("MONTORA_GPU").as_deref().map(str::trim) {
+        Ok("integrated" | "low-power") => wgpu::PowerPreference::LowPower,
+        _ => wgpu::PowerPreference::HighPerformance,
+    }
+}
+
+/// The GPU choices Settings > General offers, in its order, as the names
+/// the settings file and `MONTORA_GPU` use.
+pub const CHOICES: [&str; 3] = ["auto", "integrated", "discrete"];
+
+/// Applies the remembered GPU choice for this run by setting `MONTORA_GPU`,
+/// which both places an adapter is chosen read - unless it is already set,
+/// so a value given by hand still wins. "auto", or nothing remembered,
+/// asks for the integrated GPU only where the discrete one is known to
+/// fail: see [`integrated_is_safer`].
+///
+/// # Safety
+///
+/// Writes the environment: call it while the process has one thread.
+pub unsafe fn apply_choice(choice: Option<&str>) {
+    if std::env::var_os("MONTORA_GPU").is_some() {
+        return;
+    }
+    let integrated = match choice {
+        Some("integrated") => true,
+        Some("discrete") => false,
+        _ => integrated_is_safer(),
+    };
+    if integrated {
+        log::info!("gpu: asking for the integrated GPU");
+        // SAFETY: the caller promises a single-threaded process.
+        unsafe { std::env::set_var("MONTORA_GPU", "integrated") };
+    }
+}
+
+/// Whether this machine is one whose discrete GPU stalls on the engine's
+/// shaders while its integrated one does not: a Mac on macOS 12 or older
+/// with an AMD GPU beside an integrated one. The 2015 MacBook Pro's Radeon
+/// R9 M370X hung on the effect cards until the kernel restarted it and took
+/// the session down; the Intel Iris Pro beside it draws them.
+fn integrated_is_safer() -> bool {
+    if concat_host::machine::macos_major().is_none_or(|major| major > 12) {
+        return false;
+    }
+    let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+        backends: wgpu::Backends::METAL,
+        ..wgpu::InstanceDescriptor::new_without_display_handle()
+    });
+    let adapters: Vec<wgpu::AdapterInfo> =
+        pollster::block_on(instance.enumerate_adapters(wgpu::Backends::METAL))
+            .iter()
+            .map(wgpu::Adapter::get_info)
+            .collect();
+    amd_beside_integrated(&adapters)
+}
+
+/// Whether `adapters` hold an AMD discrete GPU and an integrated one.
+/// Metal gives no PCI ids (wgpu reports vendor 0 there), so AMD is also
+/// known by its name: "AMD Radeon R9 M370X".
+fn amd_beside_integrated(adapters: &[wgpu::AdapterInfo]) -> bool {
+    let integrated = adapters
+        .iter()
+        .any(|info| info.device_type == wgpu::DeviceType::IntegratedGpu);
+    let amd = adapters.iter().any(|info| {
+        let name = info.name.to_ascii_lowercase();
+        // 0x1002 is AMD's PCI vendor id.
+        info.device_type == wgpu::DeviceType::DiscreteGpu
+            && (info.vendor == 0x1002 || name.contains("amd") || name.contains("radeon"))
+    });
+    integrated && amd
+}
+
 /// The shared device and what it was created from.
 #[derive(Clone)]
 pub struct Gpu {
@@ -57,10 +137,18 @@ impl Gpu {
         };
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends,
+            // Without wgpu's validation of indirect calls: it compiles a
+            // compute shader of its own the moment a device opens, and the
+            // Metal compiler of an Intel Iris Pro under macOS 12 fails on it
+            // ("Compiler encountered an internal error"), so no device opened
+            // on that GPU at all. Nothing here draws or dispatches
+            // indirectly, so there is nothing for it to check.
+            flags: wgpu::InstanceFlags::from_build_config()
+                .difference(wgpu::InstanceFlags::VALIDATION_INDIRECT_CALL),
             ..wgpu::InstanceDescriptor::new_without_display_handle()
         });
         let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
-            power_preference: wgpu::PowerPreference::HighPerformance,
+            power_preference: power_preference(),
             ..Default::default()
         }))
         .ok()?;
@@ -152,5 +240,60 @@ pub fn driver_of(info: &wgpu::AdapterInfo) -> String {
         "driver unknown".to_owned()
     } else {
         format!("driver {named}")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn adapter(name: &str, device_type: wgpu::DeviceType, vendor: u32) -> wgpu::AdapterInfo {
+        wgpu::AdapterInfo {
+            name: name.into(),
+            vendor,
+            ..wgpu::AdapterInfo::new(device_type, wgpu::Backend::Metal)
+        }
+    }
+
+    #[test]
+    fn an_amd_gpu_beside_an_integrated_one_is_found_by_name_on_metal() {
+        // What Metal lists on a 2015 MacBook Pro: no vendor ids.
+        let mac = [
+            adapter("AMD Radeon R9 M370X", wgpu::DeviceType::DiscreteGpu, 0),
+            adapter(
+                "Intel Iris Pro Graphics",
+                wgpu::DeviceType::IntegratedGpu,
+                0,
+            ),
+        ];
+        assert!(amd_beside_integrated(&mac));
+    }
+
+    #[test]
+    fn an_amd_gpu_is_found_by_its_vendor_id() {
+        let pc = [
+            adapter("Discrete", wgpu::DeviceType::DiscreteGpu, 0x1002),
+            adapter("Integrated", wgpu::DeviceType::IntegratedGpu, 0),
+        ];
+        assert!(amd_beside_integrated(&pc));
+    }
+
+    #[test]
+    fn other_gpus_keep_the_discrete_one() {
+        let nvidia = [
+            adapter("NVIDIA GeForce GT 750M", wgpu::DeviceType::DiscreteGpu, 0),
+            adapter(
+                "Intel Iris Pro Graphics",
+                wgpu::DeviceType::IntegratedGpu,
+                0,
+            ),
+        ];
+        assert!(!amd_beside_integrated(&nvidia));
+        let amd_alone = [adapter(
+            "AMD Radeon Pro 560X",
+            wgpu::DeviceType::DiscreteGpu,
+            0,
+        )];
+        assert!(!amd_beside_integrated(&amd_alone));
     }
 }

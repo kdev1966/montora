@@ -140,13 +140,22 @@ fn begin(dirs: &AppDirs) -> Result<(PathBuf, std::fs::File), String> {
     std::fs::create_dir_all(&folder)
         .map_err(|error| format!("could not create {}: {error}", folder.display()))?;
     prune(&folder);
-    let path = folder.join(format!("concat-{}.log", stamp(now(), Stamp::File)));
+    let path = folder.join(format!("{RUN_PREFIX}{}.log", stamp(now(), Stamp::File)));
     let file = std::fs::OpenOptions::new()
         .create(true)
         .append(true)
         .open(&path)
         .map_err(|error| format!("could not open {}: {error}", path.display()))?;
     Ok((path, file))
+}
+
+/// What a run's file is named with, before its time stamp.
+const RUN_PREFIX: &str = "montora-";
+
+/// Whether `name` is a run's file: Montora's, or one a build from before the
+/// rename wrote as `concat-...`, which sorts first and so is pruned first.
+fn is_run_log(name: &str) -> bool {
+    (name.starts_with(RUN_PREFIX) || name.starts_with("concat-")) && name.ends_with(".log")
 }
 
 /// Deletes all but the newest [`KEEP`] runs.
@@ -164,7 +173,7 @@ fn prune(folder: &Path) {
         .filter(|path| {
             path.file_name()
                 .and_then(|name| name.to_str())
-                .is_some_and(|name| name.starts_with("concat-") && name.ends_with(".log"))
+                .is_some_and(is_run_log)
         })
         .collect();
     if ours.len() < KEEP {
@@ -236,9 +245,10 @@ fn firehose() -> bool {
     *FIREHOSE.get_or_init(|| environment_level().is_some())
 }
 
-/// Whether a target is one of Concat's own crates.
+/// Whether a target is one of the app's own crates: the engine's concat-*
+/// and Montora's own montora-*.
 fn own(target: &str) -> bool {
-    target.starts_with("concat")
+    target.starts_with("concat") || target.starts_with("montora")
 }
 
 /// The open file and how much of its allowance is gone.
@@ -421,11 +431,13 @@ mod tests {
         std::fs::create_dir_all(&folder).expect("a temp dir");
         for index in 0..KEEP + 5 {
             std::fs::write(
-                folder.join(format!("concat-2026091{index:02}-000000.log")),
+                folder.join(format!("montora-2026091{index:02}-000000.log")),
                 "x",
             )
             .expect("a log");
         }
+        // A run from before the rename: the oldest, so the first to go.
+        std::fs::write(folder.join("concat-20260801-000000.log"), "x").expect("a log");
         // Not ours, and not to be touched.
         std::fs::write(folder.join("notes.txt"), "x").expect("a file");
         prune(&folder);
@@ -437,13 +449,11 @@ mod tests {
             .collect();
         left.sort();
         assert!(left.contains(&"notes.txt".to_owned()));
-        let ours: Vec<&String> = left
-            .iter()
-            .filter(|name| name.starts_with("concat-"))
-            .collect();
+        let ours: Vec<&String> = left.iter().filter(|name| is_run_log(name)).collect();
         assert_eq!(ours.len(), KEEP - 1, "{ours:?}");
-        // The ones kept are the last ones written.
-        assert!(ours.iter().all(|name| name.as_str() >= "concat-20260906"));
+        // The ones kept are the last ones written, and the old name is gone.
+        assert!(ours.iter().all(|name| name.as_str() >= "montora-20260906"));
+        assert!(!left.contains(&"concat-20260801-000000.log".to_owned()));
         let _ = std::fs::remove_dir_all(&folder);
     }
 

@@ -4,6 +4,13 @@
 > Montora's engine is Concat's. This map was written by the Concat project
 > and is kept as it was: where it says Concat, the code is the same in
 > Montora. The audits it cites are Concat's, in `audit/`.
+>
+> Crate names tell the two apart. The `concat-*` crates are the engine as
+> Concat wrote it, and keep its names so changes from Concat still merge.
+> The `montora-*` crates are Montora's own additions, which this map does
+> not cover yet: `montora-ai` holds the AI providers (Groq, OpenCode Zen,
+> xAI, OpenAI, a server of one's own) and the API keys, kept in the
+> system's credential store.
 
 A map of the engine and the window for someone who wants to change one
 part without reading the rest, written against the tree at `7223d64`

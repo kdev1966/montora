@@ -12,8 +12,15 @@
 //! one undo step.
 //! The transcriber runs on a worker and reports as
 //! [`CaptionsMsg::Progress`], ending as [`CaptionsMsg::Finished`].
+//!
+//! The model list is the installed whisper models and, after them, the
+//! transcriber of the provider chosen in Settings > AI when it has one
+//! (Groq, OpenAI): the clip's sound is read here as for whisper, sent in
+//! pieces, and the words that come back, each with its own timing, are cut
+//! into caption lines the way a script is.
 
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use concat_project::Command;
 use concat_project::model::TextStyle;
@@ -23,6 +30,7 @@ use concat_speech::transcribe::Segment;
 use crate::host::{on_ui_in_project, spawn_in_project};
 use crate::i18n::{t, tf};
 use crate::panes::Msg;
+use crate::panes::ai_settings::error_text;
 use crate::panes::pace::{Pace, Stage, Timings};
 use crate::panes::settings::installed;
 use crate::studio::Studio;
@@ -110,7 +118,35 @@ pub struct CaptionsPane {
     subject: Option<Subject>,
     /// How long each model took this session, for the next run's bar.
     timings: Timings,
+    /// The running online transcription's stop flag, read between pieces.
+    online_cancel: Arc<AtomicBool>,
 }
+
+/// The transcriber the provider chosen in Settings > AI offers, when it
+/// offers one: the provider, and the model it transcribes with.
+pub fn online_transcriber(studio: &Studio) -> Option<(montora_ai::Provider, &'static str)> {
+    let provider = studio.prefs.ai.provider()?;
+    Some((provider, provider.transcription_model()?))
+}
+
+/// The sheet's model list: the installed whisper models, then the
+/// provider's transcriber, named as online.
+pub fn model_names(studio: &Studio) -> Vec<slint::SharedString> {
+    installed(&studio.settings.transcribers)
+        .iter()
+        .map(|model| model.name.as_str().into())
+        .chain(
+            online_transcriber(studio)
+                .map(|(provider, _)| tf("captions.onlineModel", &[&provider.label()]).into()),
+        )
+        .collect()
+}
+
+/// How long a caption line from the online transcriber runs at most, in
+/// characters: the script's limit.
+const ONLINE_LINE_CHARS: usize = CAPTION_CHARS;
+/// A pause longer than this, in seconds, starts a new caption line.
+const ONLINE_LINE_PAUSE: f64 = 0.8;
 
 impl CaptionsPane {
     /// Applies one message. The studio is the rest of the window; while
@@ -160,6 +196,7 @@ impl CaptionsPane {
             }
             CaptionsMsg::Cancel => {
                 studio.host.transcriber.cancel();
+                self.online_cancel.store(true, Ordering::Relaxed);
                 self.running = false;
                 self.open = false;
             }
@@ -216,6 +253,8 @@ impl CaptionsPane {
     /// sound falls to the first clip that has some.
     fn open_on(&mut self, studio: &Studio, clip: Option<String>, voice: bool) {
         let installed = installed(&studio.settings.transcribers);
+        // The active whisper model; the online transcriber, listed after
+        // the installed ones, when no whisper model is installed.
         let model = installed.iter().position(|model| model.active).unwrap_or(0);
         let sources = sources(studio);
         let sounding = clip.filter(|id| sources.iter().any(|source| &source.id == id));
@@ -280,11 +319,18 @@ impl CaptionsPane {
             self.message = t("captions.clipHasNoFile");
             return;
         };
+        let local = installed(&studio.settings.transcribers).len();
+        if self.model == local
+            && let Some(online) = online_transcriber(studio)
+        {
+            self.run_online(studio, &clip, &media.path, online);
+            return;
+        }
         let Some((model, megabytes)) = installed(&studio.settings.transcribers)
             .get(self.model)
             .map(|model| (model.id.clone(), model.megabytes))
         else {
-            self.message = t("captions.downloadTranscriberModelFirst");
+            self.message = t("captions.noTranscriber");
             return;
         };
         let request = concat_speech::transcribe::TranscribeRequest {
@@ -338,6 +384,111 @@ impl CaptionsPane {
         );
     }
 
+    /// The sheet's clip through the provider's transcriber on a worker: its
+    /// sound read as whisper reads it, sent in pieces, and the timed words
+    /// cut into caption lines. The key is read from the store on the
+    /// worker.
+    fn run_online(
+        &mut self,
+        studio: &mut Studio,
+        clip: &concat_project::model::Clip,
+        path: &str,
+        (provider, model): (montora_ai::Provider, &'static str),
+    ) {
+        let window = clip.duration * clip.speed;
+        if window.is_nan() || window <= 0.0 {
+            self.message = t("captions.nothingSaidClip");
+            return;
+        }
+        let label = format!("{}:{model}", provider.id());
+        // Ten-minute pieces; each one's upload and transcription at the
+        // pace the last online run measured, or a guess.
+        let pieces = (window / 600.0).ceil().max(1.0) as f32;
+        let per_piece = self
+            .timings
+            .get(&label)
+            .per_unit
+            .unwrap_or(4.0 + (window as f32 / pieces) / 40.0);
+        self.pace = Pace::new(vec![
+            (Stage::Reading, 0.2 + window as f32 / 400.0),
+            (Stage::Working, pieces * per_piece),
+        ]);
+        self.subject = Some(Subject {
+            start: clip.start,
+            speed: clip.speed,
+            look: self.look(),
+            model: label,
+            windows: pieces,
+        });
+        self.running = true;
+        self.message.clear();
+        let cancel = Arc::new(AtomicBool::new(false));
+        self.online_cancel = Arc::clone(&cancel);
+        let options = concat_media::AudioOptions {
+            start: Some(clip.source_start),
+            duration: Some(window),
+            filters: Vec::new(),
+            rate: 16_000,
+            channels: 1,
+            format: concat_media::SampleFormat::F32,
+            stream: clip.audio_stream.map(|index| index as usize),
+        };
+        let path = path.to_owned();
+        let config = studio.host.dirs.config.clone();
+        let custom_url = studio.prefs.ai.custom_url.clone();
+        let epoch = crate::host::project_epoch();
+        spawn_in_project(
+            move || {
+                let report = move |stage: JobStage| {
+                    on_ui_in_project(epoch, move |studio, _, _| {
+                        studio.handle(Msg::Captions(CaptionsMsg::Progress(stage)));
+                    });
+                };
+                report(JobStage::Reading);
+                let samples = concat_media::AudioDecoder::open(&path, &options)
+                    .and_then(|mut decoder| decoder.collect_f32())
+                    .map_err(|error| error.to_string())?;
+                if samples.is_empty() {
+                    return Err(t("captions.nothingSaidClip"));
+                }
+                let key = montora_ai::secrets::Secrets::new(&config).api_key(provider)?;
+                let endpoint = provider
+                    .endpoint(&custom_url, key, model)
+                    .map_err(|error| error_text(&error))?;
+                let transcript = montora_ai::transcribe_samples(
+                    &endpoint,
+                    &samples,
+                    16_000,
+                    None,
+                    &cancel,
+                    |done, all| {
+                        let all = all.max(1) as f32;
+                        report(JobStage::Working {
+                            done: done as f32 / all,
+                            next: ((done + 1) as f32 / all).min(1.0),
+                        });
+                    },
+                )
+                .map_err(|error| match error {
+                    // Said the way the whisper path says it, so the sheet
+                    // closes quietly on a cancel.
+                    montora_ai::AiError::Cancelled => "transcription cancelled".to_owned(),
+                    other => error_text(&other),
+                })?;
+                Ok(transcript
+                    .lines(ONLINE_LINE_CHARS, ONLINE_LINE_PAUSE)
+                    .into_iter()
+                    .map(|line| Segment {
+                        start: line.start,
+                        end: line.end,
+                        text: line.text,
+                    })
+                    .collect())
+            },
+            |studio, _, _, result| studio.handle(Msg::Captions(CaptionsMsg::Finished(result))),
+        );
+    }
+
     /// The sheet as Slint shows it.
     pub fn data(&self, studio: &Studio) -> CaptionsSheetData {
         let sources = if self.open {
@@ -374,7 +525,8 @@ impl CaptionsPane {
                 _ => t("captions.readingTheSound"),
             }
             .into(),
-            ready: !installed(&studio.settings.transcribers).is_empty(),
+            ready: !installed(&studio.settings.transcribers).is_empty()
+                || online_transcriber(studio).is_some(),
             message: self.message.as_str().into(),
         }
     }

@@ -49,7 +49,7 @@ export struct SystemFactData {
 export struct SettingsData {
     open: bool,
     /// 0 General, 1 Appearance, 2 Transcriber, 3 Speech, 4 Remote, 5 About,
-    /// 6 Version
+    /// 6 Version, 7 AI
     tab: int,
     language: int,
     /// what the log records: 0 errors only, 1 warnings, 2 normal, 3
@@ -57,6 +57,10 @@ export struct SettingsData {
     log-level: int,
     /// the playhead stops at the end of the content
     playhead-stops: bool,
+    /// the GPU choice: 0 automatic, 1 integrated, 2 discrete; and the GPU
+    /// this run is on
+    gpu: int,
+    gpu-now: string,
     /// the magnetic timeline: deleting and trimming close the gap
     magnetic: bool,
     /// where model downloads look first: automatic, Concat's mirror,
@@ -91,6 +95,32 @@ export struct SettingsData {
     /// package that can be put in place; and why not, when not
     can-install: bool,
     install-note: string,
+    /// the AI page: the provider, by its place in the page's list (Groq,
+    /// OpenCode Zen, xAI, OpenAI, a custom server), or -1 for none
+    ai-provider: int,
+    /// the provider is a custom server, whose address is typed
+    ai-custom: bool,
+    ai-custom-url: string,
+    /// the provider refuses a call without a key
+    ai-needs-key: bool,
+    /// the credential store has said whether there is a key, and whether
+    /// there is: the key itself never comes to the sheet
+    ai-key-known: bool,
+    ai-key-saved: bool,
+    /// a save or a forget is on its way to the store
+    ai-key-busy: bool,
+    /// what is typed into the key field, not yet saved
+    ai-key-draft: string,
+    /// the provider has a page that hands out keys
+    ai-has-keys-page: bool,
+    /// the chosen model's place in `ai-models`, or -1; and its name, for
+    /// when the list has not come yet
+    ai-model: int,
+    ai-model-name: string,
+    ai-fetching: bool,
+    /// "24 models · connected", or why the provider gave none
+    ai-status: string,
+    ai-failed: bool,
 }
 
 // Accuracy, as pips rather than a number: five little bars say "third of five"
@@ -423,6 +453,8 @@ export component SettingsDialog inherits Modal {
     in property <[string]> languages;
     /// The system report, as rows. See system_facts() in main.rs.
     in property <[SystemFactData]> system-facts;
+    /// The AI page's models, as the chosen provider listed them.
+    in property <[string]> ai-models;
     /// The same facts as one block of text, because a clipboard takes text
     /// and not a model. Built from the same list, so the page and the paste
     /// cannot come apart.
@@ -449,6 +481,7 @@ export component SettingsDialog inherits Modal {
     /// follows the display's own.
     callback scale-changed(index: int);
     callback playhead-stops-changed(on: bool);
+    callback gpu-changed(index: int);
     callback magnetic-changed(on: bool);
     callback download-source-changed(index: int);
     callback download-base-edited(text: string);
@@ -467,6 +500,15 @@ export component SettingsDialog inherits Modal {
     callback model-download(id: string);
     callback model-cancel(id: string);
     callback model-remove(id: string);
+    /// the AI page
+    callback ai-provider-changed(index: int);
+    callback ai-custom-url-edited(text: string);
+    callback ai-key-edited(text: string);
+    callback ai-key-save();
+    callback ai-key-forget();
+    callback ai-get-key();
+    callback ai-refresh-models();
+    callback ai-model-chosen(index: int);
 
     /// `Theme.accent-names`, each in the chosen language, in the same order.
     /// A second list rather than a lookup on the first because the string
@@ -501,9 +543,12 @@ export component SettingsDialog inherits Modal {
     /// Off each time the sheet opens: showing it is a decision for the
     /// moment, not a setting.
     property <bool> token-shown;
+    /// The same for the AI page's key, while it is being typed.
+    property <bool> key-shown;
     changed open => {
         if (!root.open) {
             root.token-shown = false;
+            root.key-shown = false;
         }
     }
 
@@ -595,6 +640,12 @@ export component SettingsDialog inherits Modal {
                         current: root.data.tab == 3;
                         clicked => { root.page-changed(3); }
                     }
+                    PageTab {
+                        label: I18n.t("settings.ai");
+                        glyph: Glyph.sparkle;
+                        current: root.data.tab == 7;
+                        clicked => { root.page-changed(7); }
+                    }
                     if !root.phone: PageTab {
                         label: I18n.t("settings.remote");
                         glyph: Glyph.lock;
@@ -609,7 +660,7 @@ export component SettingsDialog inherits Modal {
                     }
                     PageTab {
                         label: I18n.t("settings.about");
-                        glyph: Glyph.sparkle;
+                        glyph: Glyph.info;
                         current: root.data.tab == 5;
                         clicked => { root.page-changed(5); }
                     }
@@ -673,6 +724,24 @@ export component SettingsDialog inherits Modal {
                         ];
                         current: root.data.log-level;
                         changed(index) => { root.log-level-changed(index); }
+                    }
+                }
+
+                // Which GPU to draw on, for a machine with two: the choice
+                // is read before the window opens, so it applies at the next
+                // launch. A phone has one GPU.
+                if !root.phone: DialogSection {
+                    title: I18n.t("settings.gpu");
+                    hint: I18n.t1("settings.gpuHint", root.data.gpu-now);
+
+                    Select {
+                        options: [
+                            I18n.t("settings.gpuAutomatic"),
+                            I18n.t("settings.gpuIntegrated"),
+                            I18n.t("settings.gpuDiscrete"),
+                        ];
+                        current: root.data.gpu;
+                        changed(index) => { root.gpu-changed(index); }
                     }
                 }
 
@@ -1090,6 +1159,143 @@ export component SettingsDialog inherits Modal {
                         Button {
                             label: I18n.t("settings.newToken");
                             clicked => { root.server-token-generated(); }
+                        }
+                    }
+                }
+            }
+
+            // The AI page: the service the AI features run on, its key and
+            // its model. The list of providers is in Provider::ALL's order
+            // (montora-ai's provider.rs), which the index means. The key is
+            // typed and saved, never shown back: the store keeps it, and the
+            // page only knows whether there is one.
+            if root.data.tab == 7: VerticalLayout {
+                DialogSection {
+                    first: true;
+                    title: I18n.t("settings.aiProvider");
+                    hint: I18n.t("settings.aiProviderHint");
+
+                    Select {
+                        options: ["Groq", "OpenCode Zen", "xAI (Grok)", "OpenAI", I18n.t("settings.aiCustomServer")];
+                        details: [
+                            I18n.t("settings.aiFreeTier"),
+                            I18n.t("settings.aiFreeModels"),
+                            "",
+                            "",
+                            I18n.t("settings.aiOnThisComputer"),
+                        ];
+                        placeholder: I18n.t("settings.aiChooseProvider");
+                        current: root.data.ai-provider;
+                        changed(index) => { root.ai-provider-changed(index); }
+                    }
+                }
+
+                if root.data.ai-custom: DialogSection {
+                    title: I18n.t("settings.aiServerAddress");
+                    hint: I18n.t("settings.aiServerAddressHint");
+
+                    Field {
+                        value: root.data.ai-custom-url;
+                        placeholder: "http://localhost:11434/v1";
+                        technical: true;
+                        edited(text) => { root.ai-custom-url-edited(text); }
+                    }
+                }
+
+                if root.data.ai-provider >= 0: DialogSection {
+                    title: I18n.t("settings.aiKey");
+                    hint: root.data.ai-needs-key ? I18n.t("settings.aiKeyHint") : I18n.t("settings.aiKeyOptional");
+
+                    VerticalLayout {
+                        spacing: 6px;
+
+                        // Dots while typed, like the Remote page's token: a
+                        // key is spent on whoever reads it off the screen.
+                        HorizontalLayout {
+                            spacing: 6px;
+
+                            Field {
+                                value: root.data.ai-key-draft;
+                                placeholder: root.data.ai-key-saved ? I18n.t("settings.aiReplaceKey") : I18n.t("settings.aiPasteKey");
+                                technical: true;
+                                secret: !root.key-shown;
+                                edited(text) => { root.ai-key-edited(text); }
+                            }
+
+                            Button {
+                                square: true;
+                                glyph: root.key-shown ? Glyph.eye-off : Glyph.eye;
+                                label: root.key-shown ? I18n.t("settings.aiHideKey") : I18n.t("settings.aiShowKey");
+                                clicked => { root.key-shown = !root.key-shown; }
+                            }
+
+                            Button {
+                                primary: true;
+                                label: I18n.t("settings.aiSaveKey");
+                                enabled: root.data.ai-key-draft != "" && !root.data.ai-key-busy;
+                                clicked => { root.ai-key-save(); }
+                            }
+                        }
+
+                        HorizontalLayout {
+                            spacing: 6px;
+                            alignment: start;
+
+                            Text {
+                                text: !root.data.ai-key-known ? "…"
+                                    : root.data.ai-key-saved ? I18n.t("settings.aiKeySaved")
+                                    : I18n.t("settings.aiNoKey");
+                                color: Theme.fg-muted;
+                                font-size: Theme.fs-sm;
+                                vertical-alignment: center;
+                            }
+
+                            if root.data.ai-key-saved: Button {
+                                ghost: true;
+                                label: I18n.t("settings.aiForgetKey");
+                                enabled: !root.data.ai-key-busy;
+                                clicked => { root.ai-key-forget(); }
+                            }
+
+                            if root.data.ai-has-keys-page: Button {
+                                ghost: true;
+                                label: I18n.t("settings.aiGetKey");
+                                clicked => { root.ai-get-key(); }
+                            }
+                        }
+                    }
+                }
+
+                if root.data.ai-provider >= 0: DialogSection {
+                    title: I18n.t("settings.aiModel");
+                    hint: I18n.t("settings.aiModelHint");
+
+                    VerticalLayout {
+                        spacing: 6px;
+
+                        HorizontalLayout {
+                            spacing: 6px;
+
+                            Select {
+                                options: root.ai-models;
+                                current: root.data.ai-model;
+                                placeholder: root.data.ai-model-name != "" ? root.data.ai-model-name : I18n.t("settings.aiNoModelChosen");
+                                enabled: root.ai-models.length > 0;
+                                changed(index) => { root.ai-model-chosen(index); }
+                            }
+
+                            Button {
+                                label: I18n.t("settings.aiRefreshModels");
+                                enabled: !root.data.ai-fetching;
+                                clicked => { root.ai-refresh-models(); }
+                            }
+                        }
+
+                        if root.data.ai-status != "": Text {
+                            text: root.data.ai-status;
+                            color: root.data.ai-failed ? Theme.danger : Theme.fg-muted;
+                            font-size: Theme.fs-sm;
+                            wrap: word-wrap;
                         }
                     }
                 }

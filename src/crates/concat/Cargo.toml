@@ -19,7 +19,7 @@ name = "montora"
 path = "src/main.rs"
 
 # Slint is taken under its GPL-3.0-only option to sit beside the AGPL engine.
-# See ../../../THIRD_PARTY_NOTICES.md for why those two combine legally.
+# See ../../../docs/THIRD_PARTY_NOTICES.md for why those two combine legally.
 #
 # default-features is off because `renderer-femtovg` (the OpenGL path) is a
 # default. Enabling both compiles glutin and the whole GL renderer for
@@ -128,6 +128,9 @@ concat-project.workspace = true
 concat-export.workspace = true
 concat-host = { workspace = true, features = ["gpu"] }
 concat-speech = { workspace = true, features = ["chatterbox"] }
+# Settings > AI: the providers the AI features run on, and the keys the
+# user gives for them.
+montora-ai.workspace = true
 # The Settings sheet's Remote page: the Concat API on a socket while the
 # window is open. JSON-RPC only; the gRPC feature stays with concat-cli.
 concat-server.workspace = true

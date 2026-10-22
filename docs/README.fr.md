@@ -53,10 +53,10 @@ cd src
 FFMPEG_DIR="$(brew --prefix ffmpeg)" cargo dev
 ```
 
-[CONTRIBUTING.md](../CONTRIBUTING.md) couvre Windows, Linux et les vérifications à lancer (en anglais). [ARCHITECTURE.md](../ARCHITECTURE.md) est une carte du moteur, écrite pour Concat et toujours valable pour Montora.
+[CONTRIBUTING.md](CONTRIBUTING.md) couvre Windows, Linux et les vérifications à lancer (en anglais). [ARCHITECTURE.md](ARCHITECTURE.md) est une carte du moteur, écrite pour Concat et toujours valable pour Montora.
 
 ## Licence et crédits
 
-Montora est un logiciel libre sous [GNU AGPL v3 ou ultérieure](../LICENSE), comme Concat, avec la même [exception pour les plugins](../LICENSE-EXCEPTIONS.md). Les composants tiers sont listés dans [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md).
+Montora est un logiciel libre sous [GNU AGPL v3 ou ultérieure](../LICENSE), comme Concat, avec la même [exception pour les plugins](../LICENSE-EXCEPTIONS.md). Les composants tiers sont listés dans [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
-« Concat » et son logo appartiennent à Jareer (voir [TRADEMARK.md](../TRADEMARK.md)). Montora n'est ni affilié au projet Concat, ni approuvé par lui.
+« Concat » et son logo appartiennent à Jareer (voir [TRADEMARK.md](TRADEMARK.md)). Montora n'est ni affilié au projet Concat, ni approuvé par lui.

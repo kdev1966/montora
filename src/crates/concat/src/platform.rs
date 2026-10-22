@@ -757,6 +757,20 @@ pub fn reveal(path: &str) -> Result<(), String> {
     }
 }
 
+/// Opens a web address in the person's browser: where to get an API key,
+/// for one. On a phone, which this has no way to hand a link to, it says
+/// so, with the address in the message for the person to type.
+pub fn open_url(url: &str) -> Result<(), String> {
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    {
+        opener::open_browser(url).map_err(|error| error.to_string())
+    }
+    #[cfg(any(target_os = "android", target_os = "ios"))]
+    {
+        Err(format!("this device cannot open {url} from here"))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

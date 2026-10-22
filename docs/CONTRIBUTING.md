@@ -41,7 +41,7 @@ Slint UI - is one Cargo workspace under `src/`.
 |---|---|
 | `src/crates/` | The engine (core, media, render, export, project), the host layer (`concat-host`, `concat-speech`), the CLI, and `concat`, the Slint editor window |
 
-[`src/README.md`](src/README.md) explains how the crates fit together and
+[`src/README.md`](../src/README.md) explains how the crates fit together and
 where the sharp edges are. Read it before touching the engine.
 
 ## Checks
@@ -58,7 +58,7 @@ Translations live in one JSON file per language — see
 [`TRANSLATING.md`](TRANSLATING.md).
 
 If you added or changed a downloadable model, put it in
-[`models/manifest.toml`](models/manifest.toml) as well as the engine table it
+[`models/manifest.toml`](../models/manifest.toml) as well as the engine table it
 belongs to, and run `python3 scripts/models.py --check`; CI checks that too.
 A maintainer then runs the *Mirror models* workflow, which fetches the model,
 records its digest in both places and publishes it to the mirror the app
@@ -66,7 +66,7 @@ downloads from.
 
 Write what happens through the `log` facade — `log::info!`, `log::warn!`,
 `log::error!` — rather than to standard output or standard error. Every run
-writes `<app data>/logs/concat-<when>.log`, and a packaged build has no
+writes `<app data>/logs/montora-<when>.log`, and a packaged build has no
 terminal for anything that goes anywhere else; `CONCAT_LOG=debug` turns the
 level up. See `src/crates/concat-host/src/logs.rs`.
 
@@ -75,9 +75,9 @@ around you; the engine avoids cleverness on purpose.
 
 ## Licensing your contribution
 
-Montora is **AGPL-3.0-or-later** ([`LICENSE`](LICENSE)), like Concat, with
+Montora is **AGPL-3.0-or-later** ([`LICENSE`](../LICENSE)), like Concat, with
 Concat's plugin exception so that plugins talking to the API can carry their
-own licence ([`LICENSE-EXCEPTIONS.md`](LICENSE-EXCEPTIONS.md)).
+own licence ([`LICENSE-EXCEPTIONS.md`](../LICENSE-EXCEPTIONS.md)).
 
 Montora has no CLA. A contribution is accepted under AGPL-3.0-or-later, the
 licence of the code it joins, and you keep the copyright in it.

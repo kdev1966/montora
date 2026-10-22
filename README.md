@@ -53,10 +53,10 @@ cd src
 FFMPEG_DIR="$(brew --prefix ffmpeg)" cargo dev
 ```
 
-[CONTRIBUTING.md](CONTRIBUTING.md) covers Windows, Linux and the checks to run. [ARCHITECTURE.md](ARCHITECTURE.md) is a map of the engine. It was written for Concat and is still accurate for Montora.
+[CONTRIBUTING.md](docs/CONTRIBUTING.md) covers Windows, Linux and the checks to run. [ARCHITECTURE.md](docs/ARCHITECTURE.md) is a map of the engine. It was written for Concat and is still accurate for Montora.
 
 ## License and credits
 
-Montora is free software under the [GNU AGPL v3 or later](LICENSE), like Concat, with the same [plugin exception](LICENSE-EXCEPTIONS.md). Third-party components are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Montora is free software under the [GNU AGPL v3 or later](LICENSE), like Concat, with the same [plugin exception](LICENSE-EXCEPTIONS.md). Third-party components are listed in [THIRD_PARTY_NOTICES.md](docs/THIRD_PARTY_NOTICES.md).
 
-"Concat" and its logo belong to Jareer (see [TRADEMARK.md](TRADEMARK.md)). Montora is not affiliated with or endorsed by the Concat project.
+"Concat" and its logo belong to Jareer (see [TRADEMARK.md](docs/TRADEMARK.md)). Montora is not affiliated with or endorsed by the Concat project.
