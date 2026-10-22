@@ -46,7 +46,14 @@ name: Build app
 # The four targets are a matrix so one fails without taking the rest down;
 # `fail-fast` is off for the same reason.
 on:
-  # By hand, to build the bundles of a branch without a release: they are
+  # A pull request that changes how the bundles are made builds them, so a
+  # broken bundle step is found before it reaches main, not on a release.
+  pull_request:
+    paths:
+      - .github/workflows/build-app.yml
+      - scripts/ci/ffmpeg-macos.sh
+      - scripts/ci/deps.lock
+  # By hand, from main, to build the bundles without a release: they are
   # kept as the run's artifacts. Secrets are not passed, so the macOS
   # bundles are ad-hoc signed.
   workflow_dispatch:
@@ -127,6 +134,12 @@ env:
   GGML_FMA: "OFF"
   GGML_F16C: "OFF"
   GGML_BMI2: "OFF"
+
+# A pull request's build is replaced by the next push to it; a release's
+# never is.
+concurrency:
+  group: build-app-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   app:
