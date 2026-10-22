@@ -21,11 +21,10 @@ Chaque correction se fait sur sa branche, avec un test qui reproduit le problèm
       avant `app.run()` : un échec de la fenêtre ou de la surface Metal passe inaperçu.
       `concat/src/lib.rs:1898`.
 
-- [ ] **Le .dmg doit démarrer sous macOS 12** (Concat #342, #372). libavdevice n'est plus
-      lié (fait). Reste : le FFmpeg de Homebrew des serveurs GitHub et ses bibliothèques
-      sont compilés pour macOS 15. La fabrication du .dmg le détecte désormais et échoue.
-      En cours : FFmpeg compilé par nous pour macOS 12 (`scripts/ci/ffmpeg-macos.sh`).
-      Reste à vérifier : le .dmg Intel lancé sur le Mac de l'utilisateur.
+- [x] **Le .dmg doit démarrer sous macOS 12** (Concat #342, #372). libavdevice retiré (#7),
+      FFmpeg 8.1.3 compilé par nous pour macOS 12 (#10). Vérifié le 22 octobre 2026 : le .dmg
+      Intel installé dans Applications démarre sur le Mac de l'utilisateur (macOS 12.7.6),
+      importe, lit et exporte en H.264 avec le FFmpeg embarqué.
 
 ## Gravité moyenne
 
@@ -38,6 +37,10 @@ Chaque correction se fait sur sa branche, avec un test qui reproduit le problèm
       refusé par le pilote est ignoré, seul le log le dit. `concat-render/src/gpu.rs:2576`.
 - [ ] **Erreur de validation GPU présentée comme une perte du GPU** (audit n° 10) : l'export
       s'arrête avec « the GPU device was lost 3 times ». `concat-export/src/lib.rs:1231`.
+
+- [ ] **Noms de fichiers arabes mal ordonnés à l'affichage** (vu le 22 octobre 2026) :
+      « توزر جوهرة الجنوب (1).mp4 » s'affiche « .mp4(1) توزر… » sur la timeline et dans la
+      bibliothèque. L'ordre bidirectionnel d'un texte qui mêle arabe et latin n'est pas appliqué.
 
 ## Gravité faible
 
@@ -56,3 +59,5 @@ Chaque correction se fait sur sa branche, avec un test qui reproduit le problèm
 - Scénarios manuels à dérouler à chaque version : importer, lire, couper, déplacer,
   ajouter un titre et des sous-titres, exporter, rouvrir le projet, fermer pendant un
   enregistrement.
+- [ ] Le projet s'enregistre sous `concat.json` : à renommer avec le passage concat → montora,
+      en gardant la lecture des anciens projets.
