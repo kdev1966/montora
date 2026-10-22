@@ -20,6 +20,11 @@ Chaque correction se fait sur sa branche, avec un test qui reproduit le problèm
       avant `app.run()` : un échec de la fenêtre ou de la surface Metal passe inaperçu.
       `concat/src/lib.rs:1898`.
 
+- [ ] **Le .dmg doit démarrer sous macOS 12** (Concat #342, #372). libavdevice n'est plus
+      lié (fait). Reste : le FFmpeg de Homebrew des serveurs GitHub et ses bibliothèques
+      sont compilés pour macOS 15. La fabrication du .dmg le détecte désormais et échoue ;
+      il faut compiler FFmpeg et ses dépendances pour macOS 12 avant la pré-version.
+
 ## Gravité moyenne
 
 - [ ] **Titres au-delà de 24 qui disparaissent de l'aperçu pendant un glisser** (audit n° 5).
