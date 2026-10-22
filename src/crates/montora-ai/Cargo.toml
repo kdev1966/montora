@@ -15,7 +15,7 @@ thiserror.workspace = true
 # blocking client: an AI task runs on a worker thread like every other long
 # job in the engine, and an async stack would be a runtime's worth of
 # dependencies for a few POSTs. The same major as concat-host's.
-ureq = "2"
+ureq = "3"
 
 # The user's API keys go to the system's own credential store, never into
 # settings.json: the macOS Keychain, the Windows Credential Manager, and the
