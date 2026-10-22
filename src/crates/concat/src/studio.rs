@@ -1885,6 +1885,11 @@ pub enum Confirm {
     RemoveTrack { track_id: String },
     /// Exporting over a file that is already at `path`.
     ReplaceExport { path: String },
+    /// Quitting though the project could not be saved, for `error`. A
+    /// close that cannot write the project keeps the window, and without
+    /// this a disk unplugged, full or read-only made a window that would
+    /// never close.
+    QuitWithoutSaving { error: String },
 }
 
 /// One clip on the clipboard: the clip as it was when copied, and the row
@@ -2166,6 +2171,11 @@ impl Studio {
                     crate::panes::export::ExportMsg::Overwrite,
                 ));
             }
+            Some(Confirm::QuitWithoutSaving { .. }) => {
+                log::warn!("close: quitting without saving, as asked");
+                self.release_project();
+                slint::quit_event_loop().ok();
+            }
             None => {}
         }
     }
@@ -2200,6 +2210,12 @@ impl Studio {
                 title: t("export.replaceFileTitle").into(),
                 message: tf("export.replaceFileMessage", &[path]).into(),
                 action: t("export.replace").into(),
+            },
+            Confirm::QuitWithoutSaving { error } => crate::ui::ConfirmData {
+                open: true,
+                title: t("close.unsavedTitle").into(),
+                message: tf("close.unsavedMessage", &[error]).into(),
+                action: t("close.quitWithoutSaving").into(),
             },
         }
     }
@@ -2507,12 +2523,15 @@ impl Studio {
         };
         self.autosave.stop();
         let (path, document) = session.prepare_save(None);
+        // Capture the write order with the snapshot, not later when a
+        // worker happens to pick it up.
+        let ticket = projects::ticket();
         self.dirty = false;
-        spawn(
-            move || projects::save(&path, &document),
+        spawn_in_project(
+            move || projects::save_ordered(&path, &document, ticket),
             move |studio, _, _, result| match result {
-                Ok(()) if announce => studio.notify(&t("studio.projectSaved"), false),
-                Ok(()) => {}
+                Ok(_) if announce => studio.notify(&t("studio.projectSaved"), false),
+                Ok(_) => {}
                 Err(error) => {
                     studio.dirty = true;
                     studio.notify(&tf("studio.couldNotSave", &[&error]), true);
@@ -7218,11 +7237,45 @@ impl Studio {
     }
 
     /// Saves, then closes the session and returns to the launch screen.
-    pub fn close_project(&mut self) {
+    ///
+    /// A save that fails returns its reason and stops short of the close:
+    /// the session, its running jobs and the autosave timer are left as they
+    /// were, so a caller that was about to hide the window or quit can keep
+    /// it up rather than drop unsaved work on the floor. Not untouched, to be
+    /// exact - the close flushes a half-typed commit and pauses playback
+    /// before it saves, and a failed save leaves those two as done. What a
+    /// failure does not reach is the teardown: the worker cancellations, the
+    /// job lists, the autosave timer and the session itself.
+    pub fn close_project(&mut self) -> Result<(), String> {
         log::info!("project: closing {}", self.project_name);
         // Words still being typed land in the save, not on the floor.
         self.flush_commit();
         self.pause();
+        // Saved before the workers are cancelled: a close that cannot be
+        // written is not a close, and the jobs it would have stopped are
+        // not ours to throw away.
+        if let Some(session) = self.session.as_mut() {
+            let (path, document) = session.prepare_save(None);
+            let ticket = projects::ticket();
+            if let Err(error) = projects::save_ordered(&path, &document, ticket) {
+                log::warn!("project: could not be saved, not closing: {error}");
+                self.notify(&tf("studio.couldNotSave", &[&error]), true);
+                return Err(error);
+            }
+        }
+        self.release_project();
+        Ok(())
+    }
+
+    /// Asks whether to quit though the project could not be saved: the
+    /// window's ways out call it when `close_project` refused.
+    pub fn offer_quit_without_saving(&mut self, error: String) {
+        self.confirm = Some(Confirm::QuitWithoutSaving { error });
+    }
+
+    /// Lets the open project go, unsaved: what `close_project` does once
+    /// the save has landed, and what quitting without saving does instead.
+    fn release_project(&mut self) {
         self.host.cutouts.cancel();
         self.host.enhancers.cancel();
         self.host.reversers.cancel();
@@ -7230,13 +7283,6 @@ impl Studio {
         self.reverse_jobs.clear();
         self.cutout_jobs.clear();
         self.region_job = None;
-        if let Some(session) = self.session.as_mut() {
-            let (path, document) = session.prepare_save(None);
-            if let Err(error) = projects::save(&path, &document) {
-                self.notify(&tf("studio.couldNotSave", &[&error]), true);
-                return;
-            }
-        }
         self.autosave.stop();
         if let Some(session) = self.session.as_ref() {
             self.host.open_projects.release(session.path());
