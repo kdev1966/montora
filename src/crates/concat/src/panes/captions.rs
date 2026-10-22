@@ -808,7 +808,10 @@ fn wrap_caption(sentence: &str) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{script_captions, source_label};
+    use super::{
+        Command, Heard, Segment, Subject, TranscriptWord, kept_transcript, script_captions,
+        source_label,
+    };
 
     /// What a run heard is moved from the window's seconds to the file's,
     /// over the stretch of the file it read; a blank phrase is not kept.
