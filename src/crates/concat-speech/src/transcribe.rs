@@ -376,9 +376,17 @@ impl Transcriber {
         if loaded.as_ref().map(|model| model.id.as_str()) != Some(request.model_id.as_str()) {
             // Load before overwriting: a failed load keeps the old model.
             progress(JobStage::Loading);
-            let context =
-                WhisperContext::new_with_params(&model_path, WhisperContextParameters::default())
-                    .map_err(|error| format!("could not load the model: {error}"))?;
+            // ggml's Metal backend is made for Apple silicon, whose GPU shares
+            // the CPU's memory. On an Intel Mac it picks the discrete GPU - a
+            // Radeon with memory of its own - and aborts the whole app while
+            // loading the model (ggml_metal_buffer_set_tensor, seen on a 2015
+            // MacBook Pro). Whisper runs on the CPU there instead.
+            let mut params = WhisperContextParameters::default();
+            if cfg!(all(target_os = "macos", target_arch = "x86_64")) {
+                params.use_gpu(false);
+            }
+            let context = WhisperContext::new_with_params(&model_path, params)
+                .map_err(|error| format!("could not load the model: {error}"))?;
             *loaded = Some(LoadedModel {
                 id: request.model_id.clone(),
                 context,
