@@ -1,49 +1,56 @@
 # Montora 0.3.0 — plan de version
 
-Décidé le 21 octobre 2026. Une branche et une PR par étape ; chaque fonction est
-testée dans l'app avant son merge ; la version sort après une pré-version testée sur
-le Mac (macOS 12, Intel).
+Revu le 22 octobre 2026 : **approche MVP par éléments préfabriqués.** Au lieu de terminer
+chaque étape avant de passer à la suivante, on monte vite une version qui marche de bout en
+bout, on lui ajoute des fonctions une par une en version minimale, et l'on ne consolide qu'à
+la fin, comme une tour faite de modules préfabriqués assemblés puis finis ensemble.
 
-**macOS d'abord, puis Windows.** La 0.3.0 vise le Mac seul : chaque fonction est faite
-et testée sur macOS, et la version sort en `.dmg` Intel et Apple Silicon. Windows vient
-ensuite (0.4). Linux et Android sont mis de côté pour l'instant : leurs builds (Nix,
-téléphones) ne se lancent plus qu'à la main. La CI garde à chaque PR les tests du moteur
-(sur Linux, le banc d'essai du projet), les tests Windows et la compilation macOS.
+**macOS d'abord.** La 0.3.0 vise le Mac seul (Intel testé, Apple Silicon construit), en
+`.dmg` à partir de macOS 12. Windows vient ensuite.
 
-## Phase 1 — Base solide
+## Les règles
 
-- [ ] 1. GPU : réglage Automatique / Intégré / Dédié (Réglages › Général), Automatique =
-      GPU intégré sur un Mac dont la carte dédiée est une AMD sous macOS 12 ;
-      validation des appels indirects de wgpu désactivée (fait) ;
-      `MONTORA_GPU` gardé comme dérogation. Reste : essai sur le Mac de l'utilisateur.
-- [ ] 2. PR `feat/ai-providers` → `main` (#5, en brouillon : IA, Réglages › IA,
-      sous-titres en ligne), merge. Les PR Dependabot (#1, #4) attendent la 0.4, sauf
-      mise à jour nécessaire au Mac ou à Windows.
-- [ ] 2b. Correctifs repris de Concat, un par branche (même licence AGPL, en-têtes
-      gardés) : démarrage sous macOS 12 sans libavdevice (#342), puis les autres
-      correctifs Mac de stabilité. Liste de stabilité : `docs/robustness-macos.md`.
+- **Une tranche MVP** = le chemin le plus simple qui marche vraiment dans l'application,
+  testé sur le Mac de l'utilisateur, marqué « expérimental » dans l'interface. Pas de
+  finitions ni de cas rares : ils attendent l'intégration finale.
+- **Une PR courte par tranche.** L'utilisateur essaie la tranche sur son Mac avant la fusion.
+- **Mode manuel.** Chaque tranche est proposée (quoi, temps estimé sur le Mac et en CI,
+  risque) et commence avec l'accord de l'utilisateur ; une tranche à la fois.
+- **Ce qui ne se saute jamais :** la CI complète (Clippy et tous les tests) avant chaque fusion
+  dans `main`, les données de l'utilisateur protégées (rien n'est supprimé ou écrasé sans
+  accord), et un `main` qui reste toujours utilisable.
 
-## Phase 2 — Fonctions
+## Étape A — le MVP de base : une boucle complète
 
-- [ ] 3. Transcription conservée dans le projet (texte, segments, mots horodatés, par média).
-- [ ] 4. Mots horodatés avec whisper local (hors ligne).
-- [ ] 5. Export / import SRT et VTT (reprendre l'import/export SRT de Concat, #403, puis VTT).
-- [ ] 6. Suppression des silences (seuil, durée minimale, marge).
-- [ ] 7. Suppression des hésitations (« euh », « hum », « um »…) à partir des mots.
-- [ ] 8. Moments forts par l'IA → nouvelle timeline.
-- [ ] 9. Montage par le texte.
-- [ ] 10. IA locale : llama.cpp (`llama-server` embarqué, protocole OpenAI).
+> importer → transcrire → sous-titres → couper les silences → exporter (vidéo + SRT)
 
-## Phase 3 — Sortie
+- [x] Base solide : sauvegardes sûres, réglage GPU, `.dmg` qui démarre sous macOS 12
+      (FFmpeg compilé pour macOS 12), vérifié sur le Mac de l'utilisateur.
+- [x] IA au choix (Groq, OpenCode Zen, xAI, OpenAI, adresse personnalisée), sous-titres en
+      ligne.
+- [ ] Transcription gardée dans le projet, par média (PR #14).
+- [ ] Export des sous-titres en `.srt` à partir de la transcription.
+- [ ] Suppression des silences : FFmpeg repère les silences, Montora propose les coupes,
+      l'utilisateur valide.
 
-- [ ] 11. Checklist de tests manuels par fonction.
-- [ ] 12. Pré-version `v0.3.0-rc.1` (brouillon) : `.dmg` macOS Intel et Apple Silicon
-      seulement (release.yml réduit au Mac pour cette version).
-- [ ] 13. Corrections, puis `v0.3.0`.
+## Étape B — tranches MVP ajoutées une par une
 
-## Déjà fait (branche feat/ai-providers)
+Ordre de départ, modifiable par l'utilisateur :
 
-- Crate `montora-ai` : Groq, OpenCode Zen, xAI, OpenAI, serveur personnalisé ; clés dans
-  le trousseau du système.
-- Réglages › IA (testé avec Groq).
-- Sous-titres en ligne (testé : 6 min 57 transcrites en 14 s, 120 sous-titres).
+- [ ] Import SRT / VTT (reprendre le code de Concat, #403).
+- [ ] Suppression des « euh » : mots repérés dans la transcription.
+- [ ] Extraits forts : l'IA choisit trois passages, Montora crée une timeline.
+- [ ] Montage par le texte : supprimer une phrase coupe la vidéo.
+- [ ] Mots horodatés avec Whisper en local.
+- [ ] Brain MVP : un plan fixe de deux ou trois étapes à valider ([brain.md](brain.md)).
+- [ ] Identité MVP : les couleurs Nocturne dans le thème ([identite/charte.md](identite/charte.md)).
+- [ ] IA locale : llama.cpp (`llama-server`, protocole OpenAI).
+
+## Étape C — intégration finale
+
+- [ ] Chaque module consolidé : interface finie, cas rares, tests complets, performances.
+- [ ] Points restants de la liste de stabilité ([robustness-macos.md](robustness-macos.md)).
+- [ ] Renommage concat → montora (en gardant la lecture des anciens projets) et découpage du
+      module de l'application, pour des compilations plus courtes.
+- [ ] Liste de tests manuels par fonction.
+- [ ] Pré-version `v0.3.0-rc.1` (`.dmg` Intel et Apple Silicon), corrections, puis `v0.3.0`.
