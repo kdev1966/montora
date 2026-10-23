@@ -98,11 +98,23 @@ pub struct Heard {
 }
 
 impl Heard {
-    /// Lines and phrases are the same: whisper's segments are both.
+    /// Lines and phrases are the same: whisper's segments are both, and
+    /// the words it timed inside them are the run's words.
     fn of_segments(segments: Vec<Segment>) -> Heard {
+        let words = segments
+            .iter()
+            .flat_map(|segment| &segment.words)
+            .map(|word| TranscriptWord {
+                start: word.start,
+                end: word.end,
+                text: word.text.clone(),
+                confidence: Some(word.confidence),
+            })
+            .collect();
         Heard {
             lines: segments.clone(),
             segments,
+            words,
             ..Heard::default()
         }
     }
@@ -645,7 +657,12 @@ impl CaptionsPane {
                     montora_ai::AiError::Cancelled => "transcription cancelled".to_owned(),
                     other => error_text(&other),
                 })?;
-                let segment = |start: f64, end: f64, text: String| Segment { start, end, text };
+                let segment = |start: f64, end: f64, text: String| Segment {
+                    start,
+                    end,
+                    text,
+                    words: Vec::new(),
+                };
                 Ok(Heard {
                     lines: transcript
                         .lines(ONLINE_LINE_CHARS, ONLINE_LINE_PAUSE)
@@ -983,11 +1000,13 @@ mod tests {
                     start: 1.0,
                     end: 2.0,
                     text: " la perle ".to_owned(),
+                    words: Vec::new(),
                 },
                 Segment {
                     start: 2.5,
                     end: 3.0,
                     text: "  ".to_owned(),
+                    words: Vec::new(),
                 },
             ],
             words: vec![TranscriptWord {

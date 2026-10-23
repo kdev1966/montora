@@ -21,6 +21,7 @@
 pub mod chatterbox;
 pub mod transcribe;
 pub mod tts;
+pub mod words;
 
 pub use transcribe::Transcriber;
 pub use tts::Speech;

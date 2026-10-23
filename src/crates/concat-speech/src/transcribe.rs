@@ -178,6 +178,9 @@ pub struct Segment {
     pub end: f64,
     /// What was said.
     pub text: String,
+    /// Its words, each with its own times, when whisper timed its tokens.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub words: Vec<crate::words::Word>,
 }
 
 /// What to transcribe.
@@ -373,9 +376,17 @@ impl Transcriber {
         if loaded.as_ref().map(|model| model.id.as_str()) != Some(request.model_id.as_str()) {
             // Load before overwriting: a failed load keeps the old model.
             progress(JobStage::Loading);
-            let context =
-                WhisperContext::new_with_params(&model_path, WhisperContextParameters::default())
-                    .map_err(|error| format!("could not load the model: {error}"))?;
+            // ggml's Metal backend is made for Apple silicon, whose GPU shares
+            // the CPU's memory. On an Intel Mac it picks the discrete GPU - a
+            // Radeon with memory of its own - and aborts the whole app while
+            // loading the model (ggml_metal_buffer_set_tensor, seen on a 2015
+            // MacBook Pro). Whisper runs on the CPU there instead.
+            let mut params = WhisperContextParameters::default();
+            if cfg!(all(target_os = "macos", target_arch = "x86_64")) {
+                params.use_gpu(false);
+            }
+            let context = WhisperContext::new_with_params(&model_path, params)
+                .map_err(|error| format!("could not load the model: {error}"))?;
             *loaded = Some(LoadedModel {
                 id: request.model_id.clone(),
                 context,
@@ -406,6 +417,11 @@ impl Transcriber {
         params.set_print_realtime(false);
         params.set_print_timestamps(false);
         params.set_suppress_blank(true);
+        // Each token timed on its own, so the words a segment is made of
+        // keep their places: what removing a hesitation or a struck word
+        // cuts by. whisper.cpp calls it experimental; a word lands within
+        // a few tenths of a second.
+        params.set_token_timestamps(true);
         // The raw hooks, not `set_abort_callback_safe`. whisper-rs 0.16's
         // safe one hands whisper a pointer to a boxed trait object with a
         // trampoline typed for the closure itself, so whisper reads the
@@ -442,6 +458,9 @@ impl Transcriber {
             return Err("transcription cancelled".to_owned());
         }
 
+        // Whisper's text tokens come before its end-of-text token; every
+        // id from it on is a special one (start, language, timestamps).
+        let eot = context.token_eot();
         Ok(state
             .as_iter()
             .filter_map(|segment| {
@@ -449,7 +468,25 @@ impl Transcriber {
                 let start = segment.start_timestamp() as f64 / 100.0;
                 let end = segment.end_timestamp() as f64 / 100.0;
                 let text = segment.to_str_lossy().ok()?.trim().to_owned();
-                keep_segment(start, end, text)
+                let tokens: Vec<crate::words::Token> = (0..segment.n_tokens())
+                    .filter_map(|index| segment.get_token(index))
+                    .map(|token| {
+                        let data = token.token_data();
+                        crate::words::Token {
+                            text: token
+                                .to_str_lossy()
+                                .map(|text| text.into_owned())
+                                .unwrap_or_default(),
+                            t0: data.t0,
+                            t1: data.t1,
+                            p: data.p,
+                            special: token.token_id() >= eot,
+                        }
+                    })
+                    .collect();
+                let mut kept = keep_segment(start, end, text)?;
+                kept.words = crate::words::words_from_tokens(&tokens, (start, end));
+                Some(kept)
             })
             .collect())
     }
@@ -472,7 +509,12 @@ fn keep_segment(start: f64, end: f64, text: String) -> Option<Segment> {
     if text.is_empty() || (text.starts_with('[') && text.ends_with(']')) {
         return None;
     }
-    (end > start).then_some(Segment { start, end, text })
+    (end > start).then_some(Segment {
+        start,
+        end,
+        text,
+        words: Vec::new(),
+    })
 }
 
 #[cfg(test)]
