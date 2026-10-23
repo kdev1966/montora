@@ -561,6 +561,19 @@ pub enum Command {
         /// The pieces to rejoin, any order.
         clip_ids: Vec<String>,
     },
+    /// Takes stretches out of one clip and closes the gaps they leave on
+    /// its track, as one edit: the silences of a recording, the words
+    /// struck from a transcript. `ranges` are seconds of the clip's file,
+    /// as a [`crate::model::Transcript`] counts them; a range is clamped
+    /// to what the clip shows, ranges that touch are joined, and one
+    /// shorter than a frame is ignored. A clip on a speed curve, an
+    /// unknown clip, or nothing left to take is a no-op.
+    RemoveRanges {
+        /// The clip to cut.
+        clip_id: String,
+        /// `[start, end]` in seconds of the clip's file.
+        ranges: Vec<[f64; 2]>,
+    },
     /// Deletes clips from the active timeline. Unknown ids are ignored.
     RemoveClips {
         /// The clips to delete.
@@ -983,6 +996,7 @@ impl Command {
             Command::MoveClips { moves } => bad(moves.iter().map(|wanted| wanted.start)),
             Command::TrimClip { delta, .. } => bad([*delta]),
             Command::SplitClips { time, .. } => bad([*time]),
+            Command::RemoveRanges { ranges, .. } => ranges.iter().any(|range| bad(*range)),
             Command::FreezeFrame { time, duration, .. } => bad([*time]) || bad(*duration),
             Command::ReplaceClipMedia {
                 item, source_start, ..
@@ -1104,7 +1118,8 @@ pub fn apply(
         | Command::ReplaceClipMedia { .. }
         | Command::SetClipEnhanced { .. }
         | Command::MergeClips { .. }
-        | Command::RemoveClips { .. }) => clips::apply(project, mint, command),
+        | Command::RemoveClips { .. }
+        | Command::RemoveRanges { .. }) => clips::apply(project, mint, command),
         command @ (Command::UpdateClip { .. }
         | Command::SetClipSpeed { .. }
         | Command::SetClipCutout { .. }
