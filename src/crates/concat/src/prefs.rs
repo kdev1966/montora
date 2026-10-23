@@ -97,6 +97,37 @@ pub struct Preferences {
     /// chosen on it. The keys are not here; see montora_ai::secrets.
     #[serde(default)]
     pub ai: AiPrefs,
+    /// Settings > General: the hesitations and verbal tics this person
+    /// adds to the ones Montora knows, for their region or their own way
+    /// of speaking.
+    #[serde(default)]
+    pub fillers: FillerPrefs,
+}
+
+/// The person's own hesitations and tics, added to Montora's defaults
+/// (`concat_project::fillers`).
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct FillerPrefs {
+    /// Sounds that never carry meaning ("ehm").
+    pub hesitations: Vec<String>,
+    /// Words or phrases that usually fill ("خاطر", "tu vois").
+    pub tics: Vec<String>,
+}
+
+impl FillerPrefs {
+    /// A typed list as kept: split on Latin or Arabic commas, trimmed,
+    /// without empty entries or repeats.
+    pub fn parse(text: &str) -> Vec<String> {
+        let mut entries: Vec<String> = Vec::new();
+        for entry in text.split([',', '\u{060C}']) {
+            let entry = entry.split_whitespace().collect::<Vec<_>>().join(" ");
+            if !entry.is_empty() && !entries.contains(&entry) {
+                entries.push(entry);
+            }
+        }
+        entries
+    }
 }
 
 /// Settings > AI, as remembered.
@@ -237,6 +268,15 @@ impl Preferences {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_typed_filler_list_keeps_each_entry_once_trimmed() {
+        assert_eq!(
+            FillerPrefs::parse(" خاطر، مثلا ,  tu   vois,,خاطر "),
+            vec!["خاطر", "مثلا", "tu vois"]
+        );
+        assert!(FillerPrefs::parse(" , ،").is_empty());
+    }
 
     const NAMES: [&str; 3] = ["Lime", "Sky", "Violet"];
 

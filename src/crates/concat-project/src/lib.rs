@@ -24,6 +24,7 @@
 pub mod commands;
 pub mod doc;
 pub mod editor;
+pub mod fillers;
 pub mod model;
 pub mod placement;
 pub mod speed;
