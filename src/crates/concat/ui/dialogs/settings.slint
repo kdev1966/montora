@@ -61,6 +61,9 @@ export struct SettingsData {
     /// this run is on
     gpu: int,
     gpu-now: string,
+    /// the person's own hesitations and tics, comma-separated
+    filler-hesitations: string,
+    filler-tics: string,
     /// the magnetic timeline: deleting and trimming close the gap
     magnetic: bool,
     /// where model downloads look first: automatic, Concat's mirror,
@@ -482,6 +485,8 @@ export component SettingsDialog inherits Modal {
     callback scale-changed(index: int);
     callback playhead-stops-changed(on: bool);
     callback gpu-changed(index: int);
+    callback filler-hesitations-edited(text: string);
+    callback filler-tics-edited(text: string);
     callback magnetic-changed(on: bool);
     callback download-source-changed(index: int);
     callback download-base-edited(text: string);
@@ -742,6 +747,29 @@ export component SettingsDialog inherits Modal {
                         ];
                         current: root.data.gpu;
                         changed(index) => { root.gpu-changed(index); }
+                    }
+                }
+
+                // The person's own hesitations and tics, added to the ones
+                // Montora knows, for the clip menu's "Remove hesitations
+                // and tics".
+                DialogSection {
+                    title: I18n.t("settings.fillers");
+                    hint: I18n.t("settings.fillersHint");
+
+                    VerticalLayout {
+                        spacing: 6px;
+
+                        Field {
+                            value: root.data.filler-hesitations;
+                            placeholder: I18n.t("settings.fillerHesitationsPlaceholder");
+                            edited(text) => { root.filler-hesitations-edited(text); }
+                        }
+                        Field {
+                            value: root.data.filler-tics;
+                            placeholder: I18n.t("settings.fillerTicsPlaceholder");
+                            edited(text) => { root.filler-tics-edited(text); }
+                        }
                     }
                 }
 

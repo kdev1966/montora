@@ -251,6 +251,8 @@ export component App inherits Window {
     callback settings-scale-changed(index: int);
     callback settings-playhead-stops-changed(on: bool);
     callback settings-gpu-changed(index: int);
+    callback settings-filler-hesitations-edited(text: string);
+    callback settings-filler-tics-edited(text: string);
     callback settings-magnetic-changed(on: bool);
     callback settings-download-source-changed(index: int);
     callback settings-download-base-edited(text: string);
@@ -772,6 +774,8 @@ export component App inherits Window {
         scale-changed(index) => { root.settings-scale-changed(index); }
         playhead-stops-changed(on) => { root.settings-playhead-stops-changed(on); }
         gpu-changed(index) => { root.settings-gpu-changed(index); }
+        filler-hesitations-edited(text) => { root.settings-filler-hesitations-edited(text); }
+        filler-tics-edited(text) => { root.settings-filler-tics-edited(text); }
         magnetic-changed(on) => { root.settings-magnetic-changed(on); }
         download-source-changed(index) => { root.settings-download-source-changed(index); }
         download-base-edited(text) => { root.settings-download-base-edited(text); }

@@ -1897,6 +1897,15 @@ pub enum Confirm {
         ranges: Vec<[f64; 2]>,
         total: f64,
     },
+    /// Taking the hesitations and tics found in a clip out of it: `ranges`
+    /// in seconds of the clip's file, and what was found, for the sheet.
+    RemoveFillers {
+        clip_id: String,
+        ranges: Vec<[f64; 2]>,
+        hesitations: String,
+        tics: String,
+        total: f64,
+    },
 }
 
 /// One clip on the clipboard: the clip as it was when copied, and the row
@@ -2185,6 +2194,9 @@ impl Studio {
             }
             Some(Confirm::RemoveSilences {
                 clip_id, ranges, ..
+            })
+            | Some(Confirm::RemoveFillers {
+                clip_id, ranges, ..
             }) => {
                 self.flush_commit();
                 self.apply(Command::RemoveRanges { clip_id, ranges });
@@ -2229,6 +2241,35 @@ impl Studio {
                 title: t("close.unsavedTitle").into(),
                 message: tf("close.unsavedMessage", &[error]).into(),
                 action: t("close.quitWithoutSaving").into(),
+            },
+            Confirm::RemoveFillers {
+                ranges,
+                hesitations,
+                tics,
+                total,
+                ..
+            } => crate::ui::ConfirmData {
+                open: true,
+                title: t("studio.removeFillersTitle").into(),
+                message: tf(
+                    "studio.removeFillersMessage",
+                    &[
+                        &if hesitations.is_empty() {
+                            "—"
+                        } else {
+                            hesitations.as_str()
+                        },
+                        &if tics.is_empty() {
+                            "—"
+                        } else {
+                            tics.as_str()
+                        },
+                        &ranges.len(),
+                        &format!("{total:.1}"),
+                    ],
+                )
+                .into(),
+                action: t("common.delete").into(),
             },
             Confirm::RemoveSilences { ranges, total, .. } => crate::ui::ConfirmData {
                 open: true,
@@ -5836,15 +5877,7 @@ impl Studio {
             self.notify(&t("studio.noSilencesFound"), false);
             return;
         }
-        let end = clip.start + clip.duration;
-        let linked = self.timeline().clips.iter().any(|other| {
-            other.id != clip.id
-                && other.media_id == clip.media_id
-                && other.track_id != clip.track_id
-                && other.start < end
-                && clip.start < other.start + other.duration
-        });
-        if linked {
+        if self.sound_elsewhere(clip) {
             self.notify(&t("studio.silencesLinkedSound"), true);
             return;
         }
@@ -5902,6 +5935,104 @@ impl Studio {
                 }
             },
         );
+    }
+
+    /// Whether another clip of the same file plays beside `clip` on another
+    /// track: its sound detached, which a cut in the picture alone would
+    /// leave out of step.
+    fn sound_elsewhere(&self, clip: &Clip) -> bool {
+        let end = clip.start + clip.duration;
+        self.timeline().clips.iter().any(|other| {
+            other.id != clip.id
+                && other.media_id == clip.media_id
+                && other.track_id != clip.track_id
+                && other.start < end
+                && clip.start < other.start + other.duration
+        })
+    }
+
+    /// Finds the hesitations and tics in the words the clip's file was
+    /// heard to say, Montora's defaults and the person's own (Settings >
+    /// General), and asks before taking them out
+    /// (`Confirm::RemoveFillers`). Needs a transcript with timed words.
+    pub fn find_fillers(&mut self, clip: &Clip) {
+        if self.sound_elsewhere(clip) {
+            self.notify(&t("studio.silencesLinkedSound"), true);
+            return;
+        }
+        let window = (
+            clip.source_start,
+            clip.source_start + clip.duration * clip.speed,
+        );
+        let words: Vec<model::TranscriptWord> = self
+            .project()
+            .media_by_id(&clip.media_id)
+            .and_then(|media| media.transcript(clip.audio_stream))
+            .map(|transcript| {
+                transcript
+                    .words
+                    .iter()
+                    .filter(|word| window.0 <= word.start && word.end <= window.1)
+                    .cloned()
+                    .collect()
+            })
+            .unwrap_or_default();
+        if words.is_empty() {
+            self.notify(&t("studio.fillersNeedWords"), true);
+            return;
+        }
+        let list = |defaults: &[&str], own: &[String]| -> Vec<String> {
+            defaults
+                .iter()
+                .map(|entry| (*entry).to_owned())
+                .chain(own.iter().cloned())
+                .collect()
+        };
+        let hits = concat_project::fillers::find_fillers(
+            &words,
+            &list(
+                concat_project::fillers::DEFAULT_HESITATIONS,
+                &self.prefs.fillers.hesitations,
+            ),
+            &list(
+                concat_project::fillers::DEFAULT_TICS,
+                &self.prefs.fillers.tics,
+            ),
+        );
+        if hits.is_empty() {
+            self.notify(&t("studio.noFillersFound"), false);
+            return;
+        }
+        // "euh ×12, يعني ×9": each entry and how often, most frequent first.
+        let tally = |tic: bool| -> String {
+            let mut counts: Vec<(String, usize)> = Vec::new();
+            for hit in hits.iter().filter(|hit| hit.tic == tic) {
+                match counts.iter_mut().find(|(phrase, _)| *phrase == hit.phrase) {
+                    Some((_, count)) => *count += 1,
+                    None => counts.push((hit.phrase.clone(), 1)),
+                }
+            }
+            counts.sort_by(|a, b| b.1.cmp(&a.1));
+            counts
+                .into_iter()
+                .map(|(phrase, count)| format!("{phrase} ×{count}"))
+                .collect::<Vec<_>>()
+                .join(", ")
+        };
+        let ranges: Vec<[f64; 2]> = hits.iter().map(|hit| [hit.start, hit.end]).collect();
+        let total = ranges.iter().map(|[start, end]| end - start).sum::<f64>();
+        log::info!(
+            "fillers: {} found in {}, {total:.1} s",
+            ranges.len(),
+            clip.id
+        );
+        self.confirm = Some(Confirm::RemoveFillers {
+            clip_id: clip.id.clone(),
+            ranges,
+            hesitations: tally(false),
+            tics: tally(true),
+            total,
+        });
     }
 
     pub fn export_clip_audio(&mut self, id: &str) {
@@ -9799,6 +9930,15 @@ impl Studio {
                 "",
                 !locked && clip.speed_curve.is_none() && self.clip_has_sound(clip),
             ));
+            // The hesitations and tics its transcript heard, by the same
+            // confirm-then-cut road.
+            rows.push(action(
+                "fillers",
+                t("studio.removeFillers"),
+                Glyph::Waveform,
+                "",
+                !locked && clip.speed_curve.is_none() && self.clip_has_sound(clip),
+            ));
         }
         // The clip's sound, written out as it plays, as a file of its own
         // in the bin. For anything with sound in it; a clip whose track is
@@ -10509,6 +10649,7 @@ impl Studio {
             }
             "export-audio" => self.export_clip_audio(id),
             "silences" => self.find_silences(&clip),
+            "fillers" => self.find_fillers(&clip),
             "detach" => self.detach_audio(&clip),
             "reattach" => {
                 self.apply(Command::ReattachAudio {

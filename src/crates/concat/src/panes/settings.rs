@@ -47,6 +47,10 @@ pub enum SettingsMsg {
     PlayheadStopsChanged(bool),
     /// The GPU row: an index into `gpu::CHOICES`. Applied at next launch.
     GpuChanged(i32),
+    /// The person's own hesitations, as typed: a comma-separated list.
+    FillerHesitationsEdited(String),
+    /// The person's own verbal tics, as typed.
+    FillerTicsEdited(String),
     /// The magnetic timeline switch; the tray's button is the same fact.
     MagneticChanged(bool),
     DownloadSourceChanged(i32),
@@ -303,6 +307,14 @@ impl SettingsPane {
                 // Applied now, whatever the environment said: a person at
                 // the sheet is asking for this run too.
                 concat_host::logs::set_level(*level);
+            }
+            SettingsMsg::FillerHesitationsEdited(text) => {
+                studio.prefs.fillers.hesitations = crate::prefs::FillerPrefs::parse(&text);
+                studio.prefs.save(&studio.host.dirs);
+            }
+            SettingsMsg::FillerTicsEdited(text) => {
+                studio.prefs.fillers.tics = crate::prefs::FillerPrefs::parse(&text);
+                studio.prefs.save(&studio.host.dirs);
             }
             SettingsMsg::GpuChanged(index) => {
                 let Some(choice) = crate::gpu::CHOICES.get(index.max(0) as usize) else {
@@ -849,6 +861,8 @@ impl SettingsPane {
             gpu_now: crate::gpu::adapter_description()
                 .map_or_else(|| t("settings.gpuNone"), str::to_owned)
                 .into(),
+            filler_hesitations: studio.prefs.fillers.hesitations.join(", ").into(),
+            filler_tics: studio.prefs.fillers.tics.join(", ").into(),
             magnetic: studio.prefs.magnetic,
             download_source: self.download_source as i32,
             download_base: self.download_base.as_str().into(),

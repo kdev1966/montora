@@ -1657,6 +1657,16 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
     app.on_settings_gpu_changed(on_window!(|state, index: i32| {
         state.handle(Msg::Settings(SettingsMsg::GpuChanged(index)));
     }));
+    app.on_settings_filler_hesitations_edited(on_window!(|state, text: SharedString| {
+        state.handle(Msg::Settings(SettingsMsg::FillerHesitationsEdited(
+            text.to_string(),
+        )));
+    }));
+    app.on_settings_filler_tics_edited(on_window!(|state, text: SharedString| {
+        state.handle(Msg::Settings(SettingsMsg::FillerTicsEdited(
+            text.to_string(),
+        )));
+    }));
     app.on_settings_playhead_stops_changed(on_window!(|state, on: bool| {
         state.handle(Msg::Settings(SettingsMsg::PlayheadStopsChanged(on)));
     }));
