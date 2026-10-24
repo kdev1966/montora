@@ -781,6 +781,8 @@ pub struct Studio {
     pub relink: crate::panes::relink::RelinkPane,
     /// What the confirmation sheet is asking about, while it is up.
     pub confirm: Option<Confirm>,
+    /// The text-editing sheet, while it is up.
+    pub text_edit: Option<TextEdit>,
     /// The clip whose incoming transition is selected, while no clip is:
     /// a transition is picked on its own, not as part of the clip it rides
     /// into. Read through [`Studio::selected_transition`], which holds it
@@ -1906,6 +1908,34 @@ pub enum Confirm {
         tics: String,
         total: f64,
     },
+    /// Taking the phrases struck on the text-editing sheet out of a clip:
+    /// `ranges` in seconds of the clip's file, one per run of phrases.
+    RemoveText {
+        clip_id: String,
+        ranges: Vec<[f64; 2]>,
+        phrases: usize,
+        total: f64,
+    },
+}
+
+/// The text-editing sheet while it is up: the clip it edits, the phrases
+/// its transcript heard within what the clip shows, and which of them stay.
+pub struct TextEdit {
+    clip_id: String,
+    phrases: Vec<model::TranscriptSegment>,
+    kept: Vec<bool>,
+}
+
+impl TextEdit {
+    /// The stretches to cut, and how many phrases they hold.
+    fn struck(&self) -> (Vec<[f64; 2]>, usize) {
+        let struck: Vec<bool> = self.kept.iter().map(|kept| !kept).collect();
+        let count = struck.iter().filter(|struck| **struck).count();
+        (
+            concat_project::phrases::struck_ranges(&self.phrases, &struck),
+            count,
+        )
+    }
 }
 
 /// One clip on the clipboard: the clip as it was when copied, and the row
@@ -2037,6 +2067,7 @@ impl Studio {
             settings: crate::panes::settings::SettingsPane::default(),
             relink: crate::panes::relink::RelinkPane::default(),
             confirm: None,
+            text_edit: None,
             transition_selected: None,
             open_menu: -1,
             menu_bar_token: 0,
@@ -2197,6 +2228,9 @@ impl Studio {
             })
             | Some(Confirm::RemoveFillers {
                 clip_id, ranges, ..
+            })
+            | Some(Confirm::RemoveText {
+                clip_id, ranges, ..
             }) => {
                 self.flush_commit();
                 self.apply(Command::RemoveRanges { clip_id, ranges });
@@ -2277,6 +2311,21 @@ impl Studio {
                 message: tf(
                     "studio.removeSilencesMessage",
                     &[&ranges.len(), &format!("{total:.1}")],
+                )
+                .into(),
+                action: t("common.delete").into(),
+            },
+            Confirm::RemoveText {
+                ranges,
+                phrases,
+                total,
+                ..
+            } => crate::ui::ConfirmData {
+                open: true,
+                title: t("studio.removeTextTitle").into(),
+                message: tf(
+                    "studio.removeTextMessage",
+                    &[phrases, &ranges.len(), &format!("{total:.1}")],
                 )
                 .into(),
                 action: t("common.delete").into(),
@@ -6035,6 +6084,108 @@ impl Studio {
         });
     }
 
+    /// Opens the text-editing sheet on the phrases the clip's file was
+    /// heard to say within what the clip shows, every one kept to start.
+    /// Needs a transcript.
+    pub fn open_text_edit(&mut self, clip: &Clip) {
+        if self.sound_elsewhere(clip) {
+            self.notify(&t("studio.silencesLinkedSound"), true);
+            return;
+        }
+        let window = (
+            clip.source_start,
+            clip.source_start + clip.duration * clip.speed,
+        );
+        let phrases = self
+            .project()
+            .media_by_id(&clip.media_id)
+            .and_then(|media| media.transcript(clip.audio_stream))
+            .map(|transcript| concat_project::phrases::phrases_in(&transcript.segments, window))
+            .unwrap_or_default();
+        if phrases.is_empty() {
+            self.notify(&t("studio.textEditNeedsTranscript"), true);
+            return;
+        }
+        self.text_edit = Some(TextEdit {
+            clip_id: clip.id.clone(),
+            kept: vec![true; phrases.len()],
+            phrases,
+        });
+    }
+
+    /// A switch on the text-editing sheet: whether phrase `index` stays.
+    pub fn text_edit_toggled(&mut self, index: i32, kept: bool) {
+        if let Some(edit) = self.text_edit.as_mut()
+            && let Some(slot) = usize::try_from(index)
+                .ok()
+                .and_then(|index| edit.kept.get_mut(index))
+        {
+            *slot = kept;
+        }
+    }
+
+    /// The text-editing sheet's Cut: closes it and asks before cutting the
+    /// struck phrases (`Confirm::RemoveText`).
+    pub fn text_edit_apply(&mut self) {
+        let Some(edit) = self.text_edit.take() else {
+            return;
+        };
+        let (ranges, phrases) = edit.struck();
+        if ranges.is_empty() {
+            return;
+        }
+        let total = ranges.iter().map(|[start, end]| end - start).sum::<f64>();
+        log::info!(
+            "text edit: {phrases} phrases struck in {}, {} cuts, {total:.1} s",
+            edit.clip_id,
+            ranges.len()
+        );
+        self.confirm = Some(Confirm::RemoveText {
+            clip_id: edit.clip_id,
+            ranges,
+            phrases,
+            total,
+        });
+    }
+
+    /// The text-editing sheet, as Slint shows it.
+    fn text_edit_data(&self) -> crate::ui::TextEditData {
+        let Some(edit) = &self.text_edit else {
+            return crate::ui::TextEditData::default();
+        };
+        // Where each phrase is said, from the clip's first frame.
+        let origin = self
+            .clip(&edit.clip_id)
+            .map(|clip| (clip.source_start, clip.speed))
+            .unwrap_or((0.0, 1.0));
+        let rows: Vec<crate::ui::TextEditPhrase> = edit
+            .phrases
+            .iter()
+            .zip(&edit.kept)
+            .map(|(phrase, kept)| {
+                let at = ((phrase.start - origin.0) / origin.1).max(0.0) as u64;
+                crate::ui::TextEditPhrase {
+                    time: format!("{}:{:02}", at / 60, at % 60).into(),
+                    text: phrase.text.trim().into(),
+                    kept: *kept,
+                }
+            })
+            .collect();
+        let (ranges, struck) = edit.struck();
+        let total = ranges.iter().map(|[start, end]| end - start).sum::<f64>();
+        crate::ui::TextEditData {
+            open: true,
+            phrases: ModelRc::new(VecModel::from(rows)),
+            summary: if struck == 0 {
+                t("textEdit.nothingStruck")
+            } else {
+                tf("textEdit.summary", &[&struck, &format!("{total:.1}")])
+            }
+            .into(),
+            any_struck: struck > 0,
+        }
+    }
+
     pub fn export_clip_audio(&mut self, id: &str) {
         let Some(clip) = self.clip(id).cloned() else {
             return;
@@ -9733,6 +9884,7 @@ impl Studio {
         sync(&models.version_details, self.settings.version_details());
         sync(&models.ai_models, self.settings.ai_model_rows());
         app.set_relink(self.relink.data());
+        app.set_text_edit(self.text_edit_data());
         app.set_confirm(self.confirm_data());
 
         // The speech sheets, and the lists they choose from.
@@ -9936,6 +10088,14 @@ impl Studio {
                 "fillers",
                 t("studio.removeFillers"),
                 Glyph::Waveform,
+                "",
+                !locked && clip.speed_curve.is_none() && self.clip_has_sound(clip),
+            ));
+            // Its phrases, struck on a sheet of their own, by the same road.
+            rows.push(action(
+                "text-edit",
+                t("studio.editByText"),
+                Glyph::TextMark,
                 "",
                 !locked && clip.speed_curve.is_none() && self.clip_has_sound(clip),
             ));
@@ -10650,6 +10810,7 @@ impl Studio {
             "export-audio" => self.export_clip_audio(id),
             "silences" => self.find_silences(&clip),
             "fillers" => self.find_fillers(&clip),
+            "text-edit" => self.open_text_edit(&clip),
             "detach" => self.detach_audio(&clip),
             "reattach" => {
                 self.apply(Command::ReattachAudio {

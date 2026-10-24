@@ -1437,6 +1437,16 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
         state.confirm = None;
     }));
 
+    app.on_text_edit_toggled(on_window!(|state, index: i32, kept: bool| {
+        state.text_edit_toggled(index, kept);
+    }));
+    app.on_text_edit_apply(on_window!(|state| {
+        state.text_edit_apply();
+    }));
+    app.on_text_edit_cancel(on_window!(|state| {
+        state.text_edit = None;
+    }));
+
     app.on_relink_all(on_window!(|state| {
         state.handle(Msg::Relink(RelinkMsg::RelinkAll));
     }));

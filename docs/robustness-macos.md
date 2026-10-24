@@ -49,8 +49,9 @@ Chaque correction se fait sur sa branche, avec un test qui reproduit le problèm
 - [ ] **L'export `.srt` peut écraser un fichier** : `nom.srt` est écrit sans écriture
       atomique et peut remplacer un fichier apparu après la boîte de dialogue. L'import lit
       un gros `.srt` sur le fil de l'interface.
-- [ ] **Les sous-titres ne suivent pas les coupes** : supprimer les silences ou les tics coupe
-      le clip, mais pas les sous-titres posés sur une autre piste.
+- [x] **Les sous-titres ne suivent pas les coupes** : supprimer les silences, les tics ou des
+      phrases coupe désormais aussi les sous-titres des pistes qui ne portent que du texte, et
+      les décale avec le clip (PR #22). Une piste mêlant texte et image n'est pas touchée.
 
 ## Gravité faible
 

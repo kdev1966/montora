@@ -711,6 +711,14 @@ pub(super) fn apply(
                         },
                     )?;
                     applied |= removed.applied;
+                    if removed.applied {
+                        follow_with_text(
+                            project.active_mut(),
+                            &piece.track_id,
+                            start.max(piece.start),
+                            end,
+                        );
+                    }
                     if doomed == clip_id {
                         break;
                     }
@@ -723,6 +731,57 @@ pub(super) fn apply(
         }
 
         _ => unreachable!("commands::apply routes only this module's commands here"),
+    }
+}
+
+/// The words over a stretch cut out of a clip, made to follow the cut: on
+/// every other track that holds titles and nothing else - the captions
+/// made from what the clip says - a title inside `[start, end)` goes, one
+/// across an edge is cut back to it, and one after moves left by the
+/// stretch, as the clip's own track closed up. A track with anything but
+/// titles on it is left as it was: a picture or a sound placed there by
+/// hand is not moved by a cut it never asked for.
+fn follow_with_text(timeline: &mut Timeline, cut_track: &str, start: f64, end: f64) {
+    let gap = end - start;
+    if gap <= 0.0 {
+        return;
+    }
+    let titles_only: HashSet<String> = timeline
+        .tracks
+        .iter()
+        .map(|track| track.id.as_str())
+        .filter(|track| *track != cut_track)
+        .filter(|track| {
+            let mut clips = timeline.clips.iter().filter(|clip| clip.track_id == *track);
+            let mut any = false;
+            let all_text = clips.all(|clip| {
+                any = true;
+                clip.kind == ClipKind::Text
+            });
+            any && all_text
+        })
+        .map(str::to_owned)
+        .collect();
+    if titles_only.is_empty() {
+        return;
+    }
+    // What is left of a title once the stretch is out: what it showed
+    // before the stretch and after it, joined.
+    let left = |clip: &Clip| -> f64 {
+        (start - clip.start).max(0.0) + (clip.start + clip.duration - end).max(0.0)
+    };
+    let touched =
+        |clip: &Clip| titles_only.contains(&clip.track_id) && clip.start + clip.duration > start;
+    timeline
+        .clips
+        .retain(|clip| !touched(clip) || clip.start >= end || left(clip) >= MIN_CLIP_DURATION);
+    for clip in timeline.clips_where(touched) {
+        if clip.start >= end {
+            clip.start -= gap;
+        } else {
+            clip.duration = left(clip);
+            clip.start = clip.start.min(start);
+        }
     }
 }
 

@@ -566,7 +566,9 @@ pub enum Command {
     /// struck from a transcript. `ranges` are seconds of the clip's file,
     /// as a [`crate::model::Transcript`] counts them; a range is clamped
     /// to what the clip shows, ranges that touch are joined, and one
-    /// shorter than a frame is ignored. A clip on a speed curve, an
+    /// shorter than a frame is ignored. The titles on tracks of titles
+    /// alone - its captions - follow the cuts: cut with it, and moved
+    /// left as its track closes up. A clip on a speed curve, an
     /// unknown clip, or nothing left to take is a no-op.
     RemoveRanges {
         /// The clip to cut.
