@@ -26,6 +26,7 @@ pub mod doc;
 pub mod editor;
 pub mod fillers;
 pub mod model;
+pub mod phrases;
 pub mod placement;
 pub mod speed;
 pub mod srt;

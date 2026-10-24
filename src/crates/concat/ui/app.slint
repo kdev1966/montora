@@ -26,6 +26,7 @@ import { ModelData, SettingsData, SettingsDialog, SystemFactData } from "dialogs
 import { ProjectDialog, ProjectSheetData } from "dialogs/project.slint";
 import { RelinkDialog, RelinkData, MissingMediaItem } from "dialogs/relink.slint";
 import { ConfirmData, ConfirmDialog } from "dialogs/confirm.slint";
+import { TextEditData, TextEditDialog, TextEditPhrase } from "dialogs/text-edit.slint";
 import { CaptionsDialog, CaptionsSheetData } from "dialogs/captions.slint";
 import { SpeechDialog, SpeechSheetData } from "dialogs/speech.slint";
 import { DockDivider, DockSide, SeatBox } from "dock.slint";
@@ -829,6 +830,24 @@ export component App inherits Window {
         data: root.relink;
         relink-all => { root.relink-all(); }
         dismiss => { root.relink-dismiss(); }
+    }
+
+    // A clip's phrases, to strike the ones that go; the cut itself is
+    // asked about on the confirmation sheet.
+    in property <TextEditData> text-edit;
+    callback text-edit-toggled(index: int, kept: bool);
+    callback text-edit-apply();
+    callback text-edit-cancel();
+
+    TextEditDialog {
+        x: 0;
+        y: 0;
+        width: root.width;
+        height: root.height;
+        data: root.text-edit;
+        toggled(index, kept) => { root.text-edit-toggled(index, kept); }
+        apply => { root.text-edit-apply(); }
+        cancel => { root.text-edit-cancel(); }
     }
 
     // A question before something is thrown away, over the workspace;

@@ -1,0 +1,120 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Jareer and Concat contributors
+
+import { I18n } from "../i18n.slint";
+import { Theme } from "../theme/theme.slint";
+import { Glyph } from "../icons.slint";
+import { Button, DialogSection, Modal } from "../primitives/modal.slint";
+import { Switch } from "../inspector/controls.slint";
+
+/// One phrase of the clip's transcript: when it is said, what is said, and
+/// whether it stays in the clip.
+export struct TextEditPhrase {
+    time: string,
+    text: string,
+    kept: bool,
+}
+
+/// Editing a clip by its text. Rust fills it and keeps the answers; the
+/// sheet only lists the phrases and passes the switches back.
+export struct TextEditData {
+    open: bool,
+    phrases: [TextEditPhrase],
+    /// "3 phrases, 12.4 s to cut", or what to do when nothing is struck.
+    summary: string,
+    /// Whether anything is struck, so the cut can go ahead.
+    any-struck: bool,
+}
+
+export component TextEditDialog inherits Modal {
+    in property <TextEditData> data;
+
+    callback toggled(index: int, kept: bool);
+    callback apply();
+    callback cancel();
+
+    open: root.data.open;
+    title: I18n.t("textEdit.title");
+    glyph: Glyph.text-mark;
+    surface-width: 640px;
+
+    closed => { root.cancel(); }
+
+    VerticalLayout {
+        DialogSection {
+            first: true;
+            title: I18n.t("textEdit.hint");
+
+            Flickable {
+                height: 360px;
+                content-height: phrases-layout.preferred-height;
+
+                phrases-layout := VerticalLayout {
+                    spacing: 4px;
+
+                    for phrase[index] in root.data.phrases : Rectangle {
+                        background: Theme.field;
+                        border-radius: 4px;
+                        opacity: phrase.kept ? 1.0 : 0.5;
+
+                        HorizontalLayout {
+                            padding: 8px;
+                            spacing: 10px;
+
+                            Switch {
+                                y: (parent.height - self.height) / 2;
+                                checked: phrase.kept;
+                                toggled(kept) => { root.toggled(index, kept); }
+                            }
+
+                            Text {
+                                width: 48px;
+                                vertical-alignment: center;
+                                text: phrase.time;
+                                color: Theme.fg-dim;
+                                font-size: Theme.fs-sm;
+                                font-family: Theme.font-technical;
+                            }
+
+                            Text {
+                                horizontal-stretch: 1;
+                                vertical-alignment: center;
+                                text: phrase.text;
+                                color: Theme.fg;
+                                font-size: Theme.fs;
+                                wrap: word-wrap;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        HorizontalLayout {
+            padding: 16px;
+            padding-top: 0px;
+            spacing: 8px;
+
+            Text {
+                horizontal-stretch: 1;
+                vertical-alignment: center;
+                text: root.data.summary;
+                color: Theme.fg-dim;
+                font-size: Theme.fs-sm;
+                wrap: word-wrap;
+            }
+
+            Button {
+                label: I18n.t("common.cancel");
+                clicked => { root.cancel(); }
+            }
+
+            Button {
+                danger: true;
+                enabled: root.data.any-struck;
+                label: I18n.t("textEdit.cut");
+                clicked => { root.apply(); }
+            }
+        }
+    }
+}
