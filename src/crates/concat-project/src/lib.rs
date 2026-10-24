@@ -2710,6 +2710,86 @@ mod tests {
         assert!(matches!(parsed, Command::RemoveRanges { .. }));
     }
 
+    /// The captions over a clip follow its cuts: on a track of titles
+    /// alone, one inside a stretch goes, one across an edge is cut back,
+    /// one after moves left with the clip; a track with anything else on
+    /// it stays put; one undo puts everything back.
+    #[test]
+    fn captions_follow_the_ranges_cut_from_their_clip() {
+        let (mut editor, media_id, clip_id) = fixture();
+        let tracks: Vec<String> = editor
+            .project()
+            .active()
+            .tracks
+            .iter()
+            .map(|track| track.id.clone())
+            .collect();
+        let (captions, mixed) = (tracks[1].clone(), tracks[2].clone());
+        let title = |editor: &mut Editor, track: &str, start: f64, duration: f64| -> String {
+            editor
+                .apply(Command::AddTextClip {
+                    track_id: Some(track.to_owned()),
+                    above: false,
+                    start,
+                    style: None,
+                    duration: Some(duration),
+                    offset_y: None,
+                })
+                .expect("adds")
+                .created_id
+                .expect("id")
+        };
+        let inside = title(&mut editor, &captions, 4.6, 0.3);
+        let across = title(&mut editor, &captions, 3.0, 1.5);
+        let after = title(&mut editor, &captions, 6.0, 1.0);
+        let beside = title(&mut editor, &mixed, 6.0, 1.0);
+        editor
+            .apply(Command::AddClip {
+                media_id,
+                track_id: mixed.clone(),
+                start: 20.0,
+                ripple: false,
+            })
+            .expect("adds");
+        let before = editor.project().clone();
+
+        editor
+            .apply(Command::RemoveRanges {
+                clip_id,
+                ranges: vec![[4.0, 5.0]],
+            })
+            .expect("cuts");
+        let at = |editor: &Editor, id: &str| {
+            editor
+                .project()
+                .active()
+                .clip(id)
+                .map(|clip| (clip.start, clip.duration))
+        };
+        let close = |got: Option<(f64, f64)>, start: f64, duration: f64| {
+            got.is_some_and(|(s, d)| (s - start).abs() < 1e-9 && (d - duration).abs() < 1e-9)
+        };
+        assert_eq!(at(&editor, &inside), None, "a caption inside the cut goes");
+        assert!(
+            close(at(&editor, &across), 3.0, 1.0),
+            "{:?}",
+            at(&editor, &across)
+        );
+        assert!(
+            close(at(&editor, &after), 5.0, 1.0),
+            "{:?}",
+            at(&editor, &after)
+        );
+        assert!(
+            close(at(&editor, &beside), 6.0, 1.0),
+            "a track with a picture on it stays: {:?}",
+            at(&editor, &beside)
+        );
+
+        editor.undo();
+        assert_eq!(editor.project(), &before, "one undo puts the captions back");
+    }
+
     /// What was heard in a media file is kept with it: saved and read back,
     /// a stretch heard again replaces only that stretch, entries that
     /// cannot be trusted are dropped, and it is set, cleared and undone
