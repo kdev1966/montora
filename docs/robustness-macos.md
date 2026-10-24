@@ -17,6 +17,10 @@ Chaque correction se fait sur sa branche, avec un test qui reproduit le problèm
 - [ ] **ONNX Runtime sur Mac Intel** (Montora, et audit n° 16). `ort` 2.0.0-rc.13 demande
       l'API 27 d'ONNX Runtime ; la dernière version pour Mac Intel (1.23.2) n'en sert que
       23 : le détourage et la voix Chatterbox échouent probablement sur un Mac Intel.
+- [ ] **Un plantage de Whisper ferme toute l'application** (Montora, vu le 23 octobre 2026).
+      whisper.cpp tourne dans le processus de Montora : son arrêt brutal (Metal sur la
+      R9 M370X) a fermé l'application. Contourné en faisant tourner Whisper sur le processeur
+      des Mac Intel (PR #19) ; il faudra isoler le moteur dans un processus à part.
 - [ ] **Le test de lancement n'ouvre jamais la fenêtre** (audit n° 17). `--smoke` s'arrête
       avant `app.run()` : un échec de la fenêtre ou de la surface Metal passe inaperçu.
       `concat/src/lib.rs:1898`.
@@ -41,8 +45,21 @@ Chaque correction se fait sur sa branche, avec un test qui reproduit le problèm
 - [ ] **Noms de fichiers arabes mal ordonnés à l'affichage** (vu le 22 octobre 2026) :
       « توزر جوهرة الجنوب (1).mp4 » s'affiche « .mp4(1) توزر… » sur la timeline et dans la
       bibliothèque. L'ordre bidirectionnel d'un texte qui mêle arabe et latin n'est pas appliqué.
+      Même défaut sur les clips de sous-titres en arabe de la timeline (vu le 23 octobre 2026).
+- [ ] **L'export `.srt` peut écraser un fichier** : `nom.srt` est écrit sans écriture
+      atomique et peut remplacer un fichier apparu après la boîte de dialogue. L'import lit
+      un gros `.srt` sur le fil de l'interface.
+- [ ] **Les sous-titres ne suivent pas les coupes** : supprimer les silences ou les tics coupe
+      le clip, mais pas les sous-titres posés sur une autre piste.
 
 ## Gravité faible
+
+- [ ] Le chargement de la bibliothèque Metal a pris 26 s au premier lancement sur le Mac Intel.
+- [ ] La liste de tics darija par défaut est courte (4 trouvés sur EP02) : l'enrichir.
+- [ ] Le modèle Turbo n'est pas sur le miroir `models-v1` : il se télécharge depuis la source.
+- [ ] Le menu « Générer les sous-titres » cache l'import et l'export SRT.
+- [ ] Les réglages de la suppression des silences (seuil, durée) ne sont pas modifiables.
+- [ ] Des textes de l'interface française ne sont pas encore traduits.
 
 - [ ] Deux exports simultanés du même nom peuvent s'écraser. `concat-export/src/lib.rs:977`.
 - [ ] Export et création par l'API qui peuvent écraser un fichier. `concat-api/src/lib.rs:519`.

@@ -28,20 +28,27 @@ la fin, comme une tour faite de modules préfabriqués assemblés puis finis ens
       (FFmpeg compilé pour macOS 12), vérifié sur le Mac de l'utilisateur.
 - [x] IA au choix (Groq, OpenCode Zen, xAI, OpenAI, adresse personnalisée), sous-titres en
       ligne.
-- [ ] Transcription gardée dans le projet, par média (PR #14).
-- [ ] Export des sous-titres en `.srt` à partir de la transcription.
-- [ ] Suppression des silences : FFmpeg repère les silences, Montora propose les coupes,
-      l'utilisateur valide.
+- [x] Transcription gardée dans le projet, par média (PR #14).
+- [x] Export des sous-titres en `.srt` à partir de la transcription (PR #16).
+- [x] Suppression des silences : Montora repère les silences, propose les coupes,
+      l'utilisateur valide (PR #17).
+
+Étape A testée sur le Mac de l'utilisateur le 23 octobre 2026.
 
 ## Étape B — tranches MVP ajoutées une par une
 
 Ordre de départ, modifiable par l'utilisateur :
 
-- [ ] Import SRT / VTT (reprendre le code de Concat, #403).
-- [ ] Suppression des « euh » : mots repérés dans la transcription.
+- [x] Import SRT (code de Concat, #403 ; PR #16). Le VTT reste à faire.
+- [x] Suppression des hésitations et tics : mots repérés dans la transcription, liste par
+      défaut et mots ajoutés par l'utilisateur (PR #18).
+- [x] Mots horodatés avec Whisper en local ; Whisper sur le processeur des Mac Intel, car
+      Metal faisait planter l'application (PR #19).
+- [x] Modèle Whisper Turbo et choix de la langue (PR #20). Mesuré sur le Mac de
+      l'utilisateur : seul modèle local qui garde la darija mêlée d'anglais ; environ 152 s
+      de calcul par minute d'audio.
 - [ ] Extraits forts : l'IA choisit trois passages, Montora crée une timeline.
 - [ ] Montage par le texte : supprimer une phrase coupe la vidéo.
-- [ ] Mots horodatés avec Whisper en local.
 - [ ] Brain MVP : un plan fixe de deux ou trois étapes à valider ([brain.md](brain.md)).
 - [ ] Identité MVP : les couleurs Nocturne dans le thème ([identite/charte.md](identite/charte.md)).
 - [ ] IA locale : llama.cpp (`llama-server`, protocole OpenAI).
