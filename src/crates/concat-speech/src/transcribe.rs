@@ -46,9 +46,12 @@ struct KnownModel {
 
 /// The models the settings panel offers, fastest first.
 ///
-/// All from the official `ggerganov/whisper.cpp` conversions. Nothing bigger
-/// than `small`: `medium` is 1.5 GB and minutes-per-minute on CPU, which is
-/// the opposite of what this feature is for.
+/// All from the official `ggerganov/whisper.cpp` conversions. Nothing
+/// between `small` and the turbo: `medium` is 1.5 GB and minutes-per-minute
+/// on CPU. The turbo is large-v3's distilled decoder, quantized to 5 bits:
+/// 550 MB, and the one that heard Tunisian Arabic mixed with English right
+/// (measured on a 2015 MacBook Pro: 166 s per minute of sound on the CPU,
+/// small 49 s but its words often wrong).
 const KNOWN_MODELS: &[KnownModel] = &[
     KnownModel {
         id: "tiny.en",
@@ -93,9 +96,17 @@ const KNOWN_MODELS: &[KnownModel] = &[
     KnownModel {
         id: "small",
         label: "Small (Multilingual)",
-        blurb: "Best quality offered, any language.",
+        blurb: "Good quality, any language.",
         approx_bytes: 487_601_967,
         sha256: "1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b",
+        english_only: false,
+    },
+    KnownModel {
+        id: "large-v3-turbo-q5_0",
+        label: "Turbo (Multilingual)",
+        blurb: "Best quality, any language and mixed speech; slow on older Macs.",
+        approx_bytes: 574_041_195,
+        sha256: "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
         english_only: false,
     },
 ];
@@ -199,6 +210,12 @@ pub struct TranscribeRequest {
     pub window: f64,
     /// Which model to use, e.g. "base.en".
     pub model_id: String,
+    /// The language spoken, as whisper names it ("ar", "fr", "en"); `None`
+    /// lets a multilingual model hear it. Told, whisper also turns what is
+    /// said in another language into this one: Tunisian Arabic mixed with
+    /// English comes out with the English in Arabic.
+    #[serde(default)]
+    pub language: Option<String>,
 }
 
 struct LoadedModel {
@@ -407,11 +424,13 @@ impl Transcriber {
         // English-only model asked for "auto" still runs the detection,
         // over a vocabulary it was never trained on, and "hears" Thai at
         // one percent - so it is simply told English.
-        params.set_language(Some(if context.is_multilingual() {
-            "auto"
-        } else {
-            "en"
-        }));
+        // A language the person chose wins; told nothing, see above.
+        let language = match request.language.as_deref() {
+            Some(code) if context.is_multilingual() => code,
+            _ if context.is_multilingual() => "auto",
+            _ => "en",
+        };
+        params.set_language(Some(language));
         params.set_print_special(false);
         params.set_print_progress(false);
         params.set_print_realtime(false);
@@ -584,6 +603,7 @@ mod real_audio {
             source_start: 0.0,
             window: 30.0,
             model_id: "tiny.en".to_owned(),
+            language: None,
         };
         let segments = transcriber
             .transcribe(&dirs, &request, |stage| eprintln!("{stage:?}"))

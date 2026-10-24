@@ -65,6 +65,8 @@ pub enum CaptionsMsg {
     SourceChanged(i32),
     TextEdited(String),
     ModelChanged(i32),
+    /// The language row: an index into [`LANGUAGES`].
+    LanguageChanged(i32),
     PlacementChanged(i32),
     SizeChanged(i32),
     /// Run the pass the sheet describes.
@@ -147,6 +149,11 @@ struct Subject {
 /// base and ten for medium on eight cores of a recent CPU.
 const WINDOW_SECONDS_PER_MB: f32 = 1.0 / 160.0;
 
+/// The languages the sheet offers, as whisper names them: automatic first.
+/// Automatic keeps speech that mixes languages as it was said; a language
+/// chosen helps a clip in that one language alone.
+pub const LANGUAGES: [Option<&str>; 4] = [None, Some("ar"), Some("fr"), Some("en")];
+
 /// The captions sheet's state.
 #[derive(Default)]
 pub struct CaptionsPane {
@@ -162,6 +169,8 @@ pub struct CaptionsPane {
     pub text: String,
     /// Row in the installed transcriber list.
     pub model: usize,
+    /// Row in [`LANGUAGES`]: 0 lets the transcriber hear it.
+    pub language: usize,
     /// 0 bottom, 1 centre, 2 top.
     pub placement: usize,
     /// 0 small, 1 medium, 2 large.
@@ -240,6 +249,9 @@ impl CaptionsPane {
             }
             CaptionsMsg::TextEdited(text) => self.text = text,
             CaptionsMsg::ModelChanged(index) => self.model = index.max(0) as usize,
+            CaptionsMsg::LanguageChanged(index) => {
+                self.language = (index.max(0) as usize).min(LANGUAGES.len() - 1);
+            }
             CaptionsMsg::PlacementChanged(index) => {
                 self.placement = (index.max(0) as usize).min(2);
             }
@@ -509,6 +521,7 @@ impl CaptionsPane {
             source_start: clip.source_start,
             window: clip.duration * clip.speed,
             model_id: model.clone(),
+            language: LANGUAGES[self.language].map(str::to_owned),
         };
         let dirs = studio.host.dirs.clone();
         let transcriber = Arc::clone(&studio.host.transcriber);
@@ -618,6 +631,7 @@ impl CaptionsPane {
         let path = path.to_owned();
         let config = studio.host.dirs.config.clone();
         let custom_url = studio.prefs.ai.custom_url.clone();
+        let language = LANGUAGES[self.language];
         let epoch = crate::host::project_epoch();
         spawn_in_project(
             move || {
@@ -641,7 +655,7 @@ impl CaptionsPane {
                     &endpoint,
                     &samples,
                     16_000,
-                    None,
+                    language,
                     &cancel,
                     |done, all| {
                         let all = all.max(1) as f32;
@@ -714,6 +728,7 @@ impl CaptionsPane {
             source,
             text: self.text.as_str().into(),
             model: self.model as i32,
+            language: self.language as i32,
             placement: self.placement as i32,
             size: self.size as i32,
             running: self.running,
